@@ -7,9 +7,6 @@
 #include"Eigen/OrderingMethods"
 
 using Eigen::VectorXd;
-using Eigen::SparseMatrix;
-using Eigen::SparseLU;
-using Eigen::COLAMDOrdering;
 
 /**
  * Cubic spline interpolator for (x,y) control points.
