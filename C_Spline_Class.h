@@ -11,244 +11,67 @@ using Eigen::SparseMatrix;
 using Eigen::SparseLU;
 using Eigen::COLAMDOrdering;
 
+/**
+ * Cubic spline interpolator for (x,y) control points.
+ * Fits a natural cubic spline through the points, then interpolate_value(x) returns
+ * the corresponding y at any x within the data range (e.g. voltage -> temperature from
+ * a calibration curve). Typical use: set x/y coordinates (or use parametrised constructor),
+ * call calculate_spline() once, then call interpolate_value(x) as needed.
+ */
 class C_Spline
 {
     protected:
-    VectorXd x_coordinates;
-    VectorXd y_coordinates;
-    VectorXd second_derivitive_vector;
-    VectorXd differences_vector;
-    VectorXd slope_vector;
-    int previous_index;
-    bool is_calibrated;
+    VectorXd x_coordinates;           ///< Knot x values (independent variable)
+    VectorXd y_coordinates;           ///< Knot y values (dependent variable)
+    VectorXd second_derivitive_vector;///< Second derivatives at each knot (from spline solve)
+    VectorXd differences_vector;     ///< x[i+1]-x[i] for each segment
+    VectorXd slope_vector;           ///< Secant slopes (y[i+1]-y[i])/(x[i+1]-x[i]) per segment
+    int previous_index;              ///< Cached segment index for repeated interpolations
+    bool is_calibrated;              ///< True after calculate_spline() has been called
 
     public:
-     
-    C_Spline() 
-    {
-        is_calibrated = false;
-        previous_index = 0;
-        std::cout<<"default C_Spline constructor called"<<std::endl;
-    }
 
-    C_Spline(const VectorXd &x_coordinate_eigen, const VectorXd &y_coordinate_eigen) 
-    {
-        x_coordinates.resize((x_coordinate_eigen.size()));
-        x_coordinates.resize((y_coordinate_eigen.size()));
-        x_coordinates = x_coordinate_eigen;
-        y_coordinates = y_coordinate_eigen;
-        is_calibrated = false;
-        previous_index = 0;
-        std::cout<<"parametrised C_Spline constructor called"<<std::endl;
-    }
+    /** Default constructor. Spline is not calibrated; set coordinates and call calculate_spline() before interpolate_value(). */
+    C_Spline();
 
-    ~C_Spline() {std::cout<<"Destroying C_Spline"<<std::endl;}
+    /** Construct from knot vectors. Spline is not calibrated until calculate_spline() is called. */
+    C_Spline(const VectorXd &x_coordinate_eigen, const VectorXd &y_coordinate_eigen);
 
-    void set_x_coord(const VectorXd &input_vector_eigen){
-        x_coordinates.resize((input_vector_eigen.size()));
-        x_coordinates = input_vector_eigen;}
+    ~C_Spline();
 
-    void set_y_coord(const VectorXd &input_vector_eigen){
-        y_coordinates.resize((input_vector_eigen.size()));
-        y_coordinates = input_vector_eigen;}
+    /** Set the x (independent) knot coordinates. Must match size of y_coordinates before calculate_spline(). */
+    void set_x_coord(const VectorXd &input_vector_eigen);
 
-    void set_differences_vector(const VectorXd &input_vector_eigen){differences_vector = input_vector_eigen;}
+    /** Set the y (dependent) knot coordinates. Must match size of x_coordinates before calculate_spline(). */
+    void set_y_coord(const VectorXd &input_vector_eigen);
 
-    void set_second_derivitive_vector(const VectorXd &input_vector_eigen){second_derivitive_vector = input_vector_eigen;}
+    /** Set differences vector (normally internal; used when storing spline coefficients). */
+    void set_differences_vector(const VectorXd &input_vector_eigen);
 
-    void set_slope_vector(const VectorXd &input_vector_eigen){slope_vector = input_vector_eigen;}
+    /** Set second-derivative vector (normally internal; used when storing spline coefficients). */
+    void set_second_derivitive_vector(const VectorXd &input_vector_eigen);
 
-    void calculate_spline()
-    {
-        SparseMatrix<double> matrix_of_equations((x_coordinates.size()),(x_coordinates.size()));
-        VectorXd rhs_vector((x_coordinates.size())); // for use in matrix calculation
-        VectorXd temp_second_derivitive_vector((x_coordinates.size()));
-        VectorXd temp_differences_vector((x_coordinates.size()-1));
-        VectorXd temp_slope_vector((x_coordinates.size()-1));
-        SparseLU<SparseMatrix<double>, COLAMDOrdering<int> >   solver;
+    /** Set slope vector (normally internal; used when storing spline coefficients). */
+    void set_slope_vector(const VectorXd &input_vector_eigen);
 
-        if((x_coordinates.size()<3) || (y_coordinates.size()<3) || (x_coordinates.size()!=y_coordinates.size()))
-        {
-            std::cout<<"x and y coordinates dont meet requirements"<<std::endl;
-            return void(); //end function early
-        }
+    /**
+     * Fit the natural cubic spline through the current x/y coordinates.
+     * Requires at least 3 points and equal-sized x and y vectors. Idempotent:
+     * does nothing if already calibrated. Call this once after setting coordinates
+     * and before calling interpolate_value().
+     */
+    void calculate_spline();
 
-        if(is_calibrated == true)
-        {
-            std::cout<<"spline already calculated"<<std::endl;
-            return void(); //end function early
-        }
+    /**
+     * Interpolate: return the spline y value at the given x.
+     * x_value_entered must lie within [min(x_coordinates), max(x_coordinates)].
+     * Returns 0 and prints a message if the spline is not calibrated or x is out of range.
+     * Efficient when many consecutive x values fall in the same segment (uses cached segment index).
+     */
+    double interpolate_value(const double& x_value_entered);
 
-        for(int i{0}; (i+1)<x_coordinates.size(); ++i) //fill vectors
-        {
-            temp_differences_vector(i) = x_coordinates((i+1)) - x_coordinates(i); // difference between subsequent x value
-            temp_slope_vector(i) = (y_coordinates((i+1)) - y_coordinates(i)) / (x_coordinates((i+1)) - x_coordinates(i)); //diffences between subsequent y values divided by diffences between subsequent x values
-        }
-
-        for(int h{0}; h<x_coordinates.size(); ++h) // fill matrix + vector used to solve for second derivitive (matrix solves for cubic spline coefficients)
-        {
-            if(h==0) // for first row of matrix...
-            {
-                matrix_of_equations.insert(0,0) = temp_differences_vector((h+1));
-                matrix_of_equations.insert(0,1) = - temp_differences_vector(h) - temp_differences_vector((h+1));
-                matrix_of_equations.insert(0,2) = temp_differences_vector(h);
-                rhs_vector(0) = 0;
-            }
-            else if((h+1) == x_coordinates.size()) //for final row of matrix
-            {
-                rhs_vector(h) = 0;
-                matrix_of_equations.insert(h,(h-2)) = temp_differences_vector((h-1));
-                matrix_of_equations.insert(h,(h-1)) = - temp_differences_vector((h-1)) - temp_differences_vector((h-2));
-                matrix_of_equations.insert(h,h) = temp_differences_vector((h-2));
-            }
-            else
-            {
-                rhs_vector(h) = 6 * (temp_slope_vector(h) - temp_slope_vector((h-1)));
-                matrix_of_equations.insert(h,(h-1)) = temp_differences_vector((h-1));
-                matrix_of_equations.insert(h,h) = 2 * (temp_differences_vector(h) + temp_differences_vector((h-1)));
-                matrix_of_equations.insert(h,(h+1)) = temp_differences_vector(h);
-            }
-        }
-
-        solver.analyzePattern(matrix_of_equations);
-        solver.factorize(matrix_of_equations); //puts matrix into factors which can then be solved
-        temp_second_derivitive_vector = solver.solve(rhs_vector); //finds vector of second derivitives from rhs_vector and using matrix factors
-
-        //resizes member functions
-        second_derivitive_vector.resize((x_coordinates.size()));
-        slope_vector.resize((x_coordinates.size()-1));
-        differences_vector.resize((x_coordinates.size()-1));
-
-        //fills member functions
-        this->set_second_derivitive_vector(temp_second_derivitive_vector);
-        this->set_differences_vector(temp_differences_vector);
-        this->set_slope_vector(temp_slope_vector);
-
-        is_calibrated = true;
-    }
-
-    double interpolate_value(const double& x_value_entered)
-    {
-        if(is_calibrated == false) // ends function if not currently calibrated (would probably be better to do this using throw/exception at some point)
-        {
-            std::cout<<"C_Spline object not currently calibrated"<<std::endl;
-            return 0;
-        }
-
-        int current_index{0};
-        bool is_index_found{false};
-        double s_0;
-        double s_1;
-        double s_2;
-        double s_3;
-        double xdif;
-
-        double max_x_value;
-        double min_x_value;
-
-        max_x_value = x_coordinates.maxCoeff();
-        min_x_value = x_coordinates.minCoeff();
-
-        if((x_value_entered > max_x_value) || (x_value_entered < min_x_value))
-        {
-            std::cout<<"Value out of bounds"<<std::endl;
-            return 0;
-        }
-
-        if((x_value_entered >= (x_coordinates(previous_index))) && (x_value_entered < (x_coordinates((previous_index + 1))))) //skips searching for index if ideantial to previous interpolation event
-        {
-            current_index = previous_index;
-        }
-        else
-        {
-            for(int index{0};is_index_found == false;++index) //runs loop to find index matching polynomial
-            {
-                if((index+1) == x_coordinates.size())
-                {
-                    is_index_found = true;
-                    current_index = index + 1;
-                }
-                else if((x_value_entered >= x_coordinates(index)) && (x_value_entered < x_coordinates((index+1))))
-                {
-                    is_index_found = true;
-                    previous_index = current_index;
-                    current_index = index;
-                }
-            }
-
-            if(current_index == x_coordinates.size())
-            {
-                std::cout<<"Value out of bounds"<<std::endl;
-                return 0; 
-            }
-        }
-        
-        // Needs to calculate the 4 coefficients for the cubic equation deining the spline in question
-        s_0 = y_coordinates(current_index);
-        s_1 = slope_vector(current_index) - (differences_vector(current_index)/6) * (2 * second_derivitive_vector(current_index) + second_derivitive_vector((current_index + 1)));
-        s_2 = second_derivitive_vector(current_index) / 2;
-        s_3 = (second_derivitive_vector((current_index + 1)) - second_derivitive_vector(current_index)) / (6 * differences_vector(current_index));
-        xdif = x_value_entered - x_coordinates(current_index); // length along the spline
-
-        return (s_0 + s_1 * xdif + s_2 * pow(xdif,2) + s_3 * pow(xdif,3));
-    }
-
-    void const print_spline_values()
-    {
-        int index;
-
-        if(is_calibrated == false)
-        {
-            std::cout<<"Must calculate spline to print spline data"<<std::endl;
-            return void();
-        }
-
-        std::cout<<"x coordinate vector:"<<std::endl<<"(";
-
-        for(index=0; index<x_coordinates.size(); ++index)
-        {
-            if(index == 0) {std::cout<<x_coordinates(index);}
-            else {std::cout<<","<<std::endl<<x_coordinates(index);}
-        }
-        std::cout<<")"<<std::endl<<std::endl;
-
-        std::cout<<"y coordinate vector:"<<std::endl<<"(";
-
-        for(index=0; index<y_coordinates.size(); ++index)
-        {
-            if(index == 0) {std::cout<<y_coordinates(index);}
-            else {std::cout<<","<<std::endl<<y_coordinates(index);}
-        }
-        std::cout<<")"<<std::endl<<std::endl;
-
-        std::cout<<"slope vector:"<<std::endl<<"(";
-
-        for(index=0; index<slope_vector.size(); ++index)
-        {
-            if(index == 0) {std::cout<<slope_vector(index);}
-            else {std::cout<<","<<std::endl<<slope_vector(index);}
-        }
-        std::cout<<")"<<std::endl<<std::endl;
-
-        std::cout<<"differences vector:"<<std::endl<<"(";
-
-        for(index=0; index<differences_vector.size(); ++index)
-        {
-            if(index == 0) {std::cout<<differences_vector(index);}
-            else {std::cout<<","<<std::endl<<differences_vector(index);}
-        }
-        std::cout<<")"<<std::endl<<std::endl;
-
-        std::cout<<"second derivitive vector:"<<std::endl<<"(";
-
-        for(index=0; index<second_derivitive_vector.size(); ++index)
-        {
-            if(index == 0) {std::cout<<second_derivitive_vector(index);}
-            else {std::cout<<","<<std::endl<<second_derivitive_vector(index);}
-        }
-        std::cout<<")"<<std::endl<<std::endl;
-    }
+    /** Print all knot and spline coefficient vectors to stdout (for debugging). No-op if not calibrated. */
+    void print_spline_values() const;
 };
-
 
 #endif
