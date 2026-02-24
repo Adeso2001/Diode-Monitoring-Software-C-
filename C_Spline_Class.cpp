@@ -156,7 +156,7 @@ double C_Spline::interpolate_value(const double &x_value_entered)
 
     if ((x_value_entered > max_x_value) || (x_value_entered < min_x_value))
     {
-        std::cout << "Value out of bounds" << std::endl;
+        std::cout << "Value out of bounds: " << x_value_entered << " " << max_x_value << " " << min_x_value << std::endl;
         return 0;
     }
 
