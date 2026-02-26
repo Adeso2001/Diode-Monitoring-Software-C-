@@ -1,4 +1,5 @@
 #include "C_Spline_Class.h"
+#include <utility>
 
 using Eigen::VectorXd;
 using Eigen::SparseMatrix;
@@ -95,14 +96,14 @@ C_Spline C_Spline::operator=(C_Spline &&moved_spline)
 }
 
 // --- getters ---
-VectorXd C_spline::get_x_coordinates() const {return x_coordinates;}
-VectorXd C_spline::get_y_coordinates() const {return y_coordinates;}
-VectorXd C_spline::get_second_derivitives() const{return second_derivitive_vector;}
-VectorXd C_spline::get_differences() const {return differences_vector;}
-VectorXd C_spline::get_slopes() const {return slope_vector;}
+VectorXd C_Spline::get_x_coordinates() const {return x_coordinates;}
+VectorXd C_Spline::get_y_coordinates() const {return y_coordinates;}
+VectorXd C_Spline::get_second_derivitives() const {return second_derivitive_vector;}
+VectorXd C_Spline::get_differences() const {return differences_vector;}
+VectorXd C_Spline::get_slopes() const {return slope_vector;}
 
-int C_spline::get_previous_index() const {return previous_index}
-bool C_spline::get_calibration_state() const{return is_calibrated;}
+int C_Spline::get_previous_index() const {return previous_index;}
+bool C_Spline::get_calibration_state() const {return is_calibrated;}
 
 // --- Setters (for coordinates and internal coefficient vectors) ---
 

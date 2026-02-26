@@ -35,14 +35,14 @@ class C_Spline
     C_Spline(const VectorXd &x_coordinate_eigen, const VectorXd &y_coordinate_eigen);
 
     C_Spline(const C_Spline &copied_spline); // copy constructor
-    C_spline(C_spline &&moved_spline); // move constructor
+    C_Spline(C_Spline &&moved_spline); // move constructor
     
     // Destructor
     ~C_Spline();
 
     // Operators
-    C_Spline operator=(const C_spline &copied_spline); // copy assignment operator
-    C_Spline operator=(C_spline &&moved_spline); // move assignment operator
+    C_Spline operator=(const C_Spline &copied_spline); // copy assignment operator
+    C_Spline operator=(C_Spline &&moved_spline); // move assignment operator
 
     //getters
     VectorXd get_x_coordinates() const;
