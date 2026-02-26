@@ -25,10 +25,84 @@ C_Spline::C_Spline(const VectorXd &x_coordinate_eigen, const VectorXd &y_coordin
     std::cout << "parametrised C_Spline constructor called" << std::endl;
 }
 
+C_Spline::C_Spline(const C_Spline &copied_spline)
+{
+    x_coordinates = copied_spline.get_x_coordinates();
+    y_coordinates = copied_spline.get_y_coordinates();
+    second_derivitive_vector = copied_spline.get_second_derivitives();
+    differences_vector = copied_spline.get_differences();
+    slope_vector = copied_spline.get_slopes();
+    previous_index = copied_spline.get_previous_index();
+    is_calibrated = copied_spline.get_calibration_state();
+    std::cout << "copy constructor called" << std::endl;
+}
+
+C_Spline::C_Spline(C_Spline &&moved_spline)
+{
+    x_coordinates = std::exchange(moved_spline.x_coordinates, VectorXd());
+    y_coordinates = std::exchange(moved_spline.y_coordinates, VectorXd());
+    second_derivitive_vector = std::exchange(moved_spline.second_derivitive_vector, VectorXd());
+    differences_vector = std::exchange(moved_spline.differences_vector, VectorXd());
+    slope_vector = std::exchange(moved_spline.slope_vector, VectorXd());
+    previous_index = std::exchange(moved_spline.previous_index, 0);
+    is_calibrated = std::exchange(moved_spline.is_calibrated, false);
+    std::cout << "move constructor called" << std::endl;
+}
+
 C_Spline::~C_Spline()
 {
     std::cout << "Destroying C_Spline" << std::endl;
 }
+
+// --- operators ---
+
+C_Spline C_Spline::operator=(const C_Spline &copied_spline)
+{
+    if (this == &copied_spline)
+    {
+        return *this;
+    }
+    else
+    {
+        x_coordinates = copied_spline.get_x_coordinates();
+        y_coordinates = copied_spline.get_y_coordinates();
+        second_derivitive_vector = copied_spline.get_second_derivitives();
+        differences_vector = copied_spline.get_differences();
+        slope_vector = copied_spline.get_slopes();
+        previous_index = copied_spline.get_previous_index();
+        is_calibrated = copied_spline.get_calibration_state();
+        return *this;
+    }
+}
+
+C_Spline C_Spline::operator=(C_Spline &&moved_spline)
+{
+    if (this == &moved_spline)
+    {
+        return *this;
+    }
+    else
+    {
+        x_coordinates = std::exchange(moved_spline.x_coordinates, VectorXd());
+        y_coordinates = std::exchange(moved_spline.y_coordinates, VectorXd());
+        second_derivitive_vector = std::exchange(moved_spline.second_derivitive_vector, VectorXd());
+        differences_vector = std::exchange(moved_spline.differences_vector, VectorXd());
+        slope_vector = std::exchange(moved_spline.slope_vector, VectorXd());
+        previous_index = std::exchange(moved_spline.previous_index, 0);
+        is_calibrated = std::exchange(moved_spline.is_calibrated, false);
+        return *this;
+    }
+}
+
+// --- getters ---
+VectorXd C_spline::get_x_coordinates() const {return x_coordinates;}
+VectorXd C_spline::get_y_coordinates() const {return y_coordinates;}
+VectorXd C_spline::get_second_derivitives() const{return second_derivitive_vector;}
+VectorXd C_spline::get_differences() const {return differences_vector;}
+VectorXd C_spline::get_slopes() const {return slope_vector;}
+
+int C_spline::get_previous_index() const {return previous_index}
+bool C_spline::get_calibration_state() const{return is_calibrated;}
 
 // --- Setters (for coordinates and internal coefficient vectors) ---
 

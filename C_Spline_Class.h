@@ -34,7 +34,25 @@ class C_Spline
     /** Construct from knot vectors. Spline is not calibrated until calculate_spline() is called. */
     C_Spline(const VectorXd &x_coordinate_eigen, const VectorXd &y_coordinate_eigen);
 
+    C_Spline(const C_Spline &copied_spline); // copy constructor
+    C_spline(C_spline &&moved_spline); // move constructor
+    
+    // Destructor
     ~C_Spline();
+
+    // Operators
+    C_Spline operator=(const C_spline &copied_spline); // copy assignment operator
+    C_Spline operator=(C_spline &&moved_spline); // move assignment operator
+
+    //getters
+    VectorXd get_x_coordinates() const;
+    VectorXd get_y_coordinates() const;
+    VectorXd get_second_derivitives() const;
+    VectorXd get_differences() const;
+    VectorXd get_slopes() const;
+    int get_previous_index() const;
+    bool get_calibration_state() const;
+
 
     /** Set the x (independent) knot coordinates. Must match size of y_coordinates before calculate_spline(). */
     void set_x_coord(const VectorXd &input_vector_eigen);
