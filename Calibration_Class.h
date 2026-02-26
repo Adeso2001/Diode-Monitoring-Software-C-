@@ -48,10 +48,28 @@ class Calibration : public C_Spline
     /** Construct with a calibration name. No file loaded until fill_from_file() is called. */
     Calibration(const string &input_name);
 
+    Calibration(const Calibration &copied_calibration); // Copy Constructor
+    Calibration(Calibration &&moved_calibration); // Move Constructor
+
+    // Default Destructor
     ~Calibration();
+
+    // Operators
+    Calibration operator=(const Calibration &copied_calibration); // copy assignment operator
+    Calibration operator=(Calibration &&moved_calibration); // move assignment operator
 
     /** Set the calibration name (e.g. for display or logging). */
     void set_name(const string &input_name);
+
+    // Getters
+    string get_name() const;
+    string get_sensor_model() const;
+    string get_serial_number() const;
+    string get_interpolation_method() const;
+    string get_setpoint_limit() const;
+    string get_data_format() const;
+    string get_file_name() const;
+    int get_break_points() const;    
 
     /**
      * Copy x (independent) knot coordinates from a std::vector into the internal Eigen vector.

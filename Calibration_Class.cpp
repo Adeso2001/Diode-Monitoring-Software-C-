@@ -1,3 +1,4 @@
+#include <utility>
 #include "Calibration_Class.h"
 
 // --- File presence check (used by fill_from_file) ---
@@ -51,9 +52,105 @@ Calibration::Calibration(const string &input_name)
     std::cout << "Calibration " << name << " created" << std::endl;
 }
 
+Calibration::Calibration(const Calibration &copied_calibration)
+{
+    x_coordinates = copied_calibration.get_x_coordinates();
+    y_coordinates = copied_calibration.get_y_coordinates();
+    second_derivitive_vector = copied_calibration.get_second_derivitives();
+    differences_vector = copied_calibration.get_differences();
+    slope_vector = copied_calibration.get_slopes();
+    previous_index = copied_calibration.get_previous_index();
+    is_calibrated = copied_calibration.get_calibration_state();
+    name = copied_calibration.get_name();
+    sensor_model = copied_calibration.get_sensor_model();
+    serial_number = copied_calibration.get_serial_number();
+    interpolation_method = copied_calibration.get_interpolation_method();
+    setpoint_limit = copied_calibration.get_setpoint_limit();
+    data_format = copied_calibration.get_data_format();
+    file_name = copied_calibration.get_file_name();
+    break_points = copied_calibration.get_break_points();
+    std::cout << "copy constructor called" << std::endl;
+}
+
+Calibration::Calibration(Calibration &&moved_calibration)
+{
+    x_coordinates = std::exchange(moved_calibration.x_coordinates, VectorXd());
+    y_coordinates = std::exchange(moved_calibration.y_coordinates, VectorXd());
+    second_derivitive_vector = std::exchange(moved_calibration.second_derivitive_vector, VectorXd());
+    differences_vector = std::exchange(moved_calibration.differences_vector, VectorXd());
+    slope_vector = std::exchange(moved_calibration.slope_vector, VectorXd());
+    previous_index = std::exchange(moved_calibration.previous_index, 0);
+    is_calibrated = std::exchange(moved_calibration.is_calibrated, false);
+    name = std::exchange(moved_calibration.name, "");
+    sensor_model = std::exchange(moved_calibration.sensor_model, "");
+    serial_number = std::exchange(moved_calibration.serial_number, "");
+    interpolation_method = std::exchange(moved_calibration.interpolation_method, "");
+    setpoint_limit = std::exchange(moved_calibration.setpoint_limit, "");
+    data_format = std::exchange(moved_calibration.data_format, "");
+    file_name = std::exchange(moved_calibration.file_name, "");
+    break_points = std::exchange(moved_calibration.break_points, 0);
+    std::cout << "move constructor called" << std::endl;
+}
+
 Calibration::~Calibration()
 {
     std::cout << "calibration " << name << " destroyed" << std::endl;
+}
+
+// --- operators ---
+
+Calibration Calibration::operator=(const Calibration &copied_calibration)
+{
+    if (this == &copied_calibration)
+    {
+        return *this;
+    }
+    else
+    {
+        x_coordinates = copied_calibration.get_x_coordinates();
+        y_coordinates = copied_calibration.get_y_coordinates();
+        second_derivitive_vector = copied_calibration.get_second_derivitives();
+        differences_vector = copied_calibration.get_differences();
+        slope_vector = copied_calibration.get_slopes();
+        previous_index = copied_calibration.get_previous_index();
+        is_calibrated = copied_calibration.get_calibration_state();
+        name = copied_calibration.get_name();
+        sensor_model = copied_calibration.get_sensor_model();
+        serial_number = copied_calibration.get_serial_number();
+        interpolation_method = copied_calibration.get_interpolation_method();
+        setpoint_limit = copied_calibration.get_setpoint_limit();
+        data_format = copied_calibration.get_data_format();
+        file_name = copied_calibration.get_file_name();
+        break_points = copied_calibration.get_break_points();
+        return *this;
+    }
+}
+
+Calibration Calibration::operator=(Calibration &&moved_calibration)
+{
+    if (this == &moved_calibration)
+    {
+        return *this;
+    }
+    else
+    {
+        x_coordinates = std::exchange(moved_calibration.x_coordinates, VectorXd());
+        y_coordinates = std::exchange(moved_calibration.y_coordinates, VectorXd());
+        second_derivitive_vector = std::exchange(moved_calibration.second_derivitive_vector, VectorXd());
+        differences_vector = std::exchange(moved_calibration.differences_vector, VectorXd());
+        slope_vector = std::exchange(moved_calibration.slope_vector, VectorXd());
+        previous_index = std::exchange(moved_calibration.previous_index, 0);
+        is_calibrated = std::exchange(moved_calibration.is_calibrated, false);
+        name = std::exchange(moved_calibration.name, "");
+        sensor_model = std::exchange(moved_calibration.sensor_model, "");
+        serial_number = std::exchange(moved_calibration.serial_number, "");
+        interpolation_method = std::exchange(moved_calibration.interpolation_method, "");
+        setpoint_limit = std::exchange(moved_calibration.setpoint_limit, "");
+        data_format = std::exchange(moved_calibration.data_format, "");
+        file_name = std::exchange(moved_calibration.file_name, "");
+        break_points = std::exchange(moved_calibration.break_points, 0);
+        return *this;
+    }
 }
 
 // --- Setters ---
@@ -62,6 +159,17 @@ void Calibration::set_name(const string &input_name)
 {
     name = input_name;
 }
+
+// --- getters ---
+
+string Calibration::get_name() const {return name;}
+string Calibration::get_sensor_model() const {return sensor_model;}
+string Calibration::get_serial_number() const{return serial_number;}
+string Calibration::get_interpolation_method() const{return interpolation_method;}
+string Calibration::get_setpoint_limit() const{return setpoint_limit;}
+string Calibration::get_data_format() const{return data_format;}
+string Calibration::get_file_name() const{return file_name;}
+int Calibration::get_break_points() const{return break_points;}
 
 // --- Fill x/y from std::vector (used after parsing file data) ---
 
