@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <utility>
 
 #include "mcc128.h"
 #include "Calibration_Class.h"
@@ -27,6 +28,10 @@ class DAQManager
     const vector<uint8_t> hat_address_vector{0, 1}; // vector containing address of each DAQ HAT
     AnalogInputMode input_mode{A_IN_MODE_SE}; // input mode (single ended or differential), specified using enum from mcc128.h
     AnalogInputRange voltage_range{A_IN_RANGE_BIP_10V}; // voltage range (assumed to be +/- 10V), specified using enum from mcc128.h
+    
+    int num_daqs; // number of DAQs in the system
+    int num_channels_single_daq; // number of channels in a single DAQ
+    int num_channels; // number of channels in the system
     bool expected_read_state; // true if the DAQ HAT is reading data, false if it is not
 
     // Channel information
@@ -43,7 +48,12 @@ class DAQManager
     const double averaging_time = 0.5; // seconds
     const int averaging_samples = sample_rate * averaging_time; // number of samples wait before averaging
 
-    // Internal functions
+    // Internal Methods
+    void connect_daqs(); // connect to DAQs
+    void configure_daqs(); // configure DAQs
+    void establish_calibration_vectors(); // establish calibration vectors for each channel
+    void apply_calibration_config(); // apply calibration configuration for each channel from a config file
+    pair<uint16_t, uint32_t> enquire_scan_status(uint8_t const &hat_address) const; // call mcc128_a_in_scan_status to enquire about scan status of a DAQ
     
 
     public:
@@ -66,13 +76,18 @@ class DAQManager
     long get_averages_performed() const;
     vector<vector<double>> get_temp_data_vector() const;
 
-    bool get_read_state() const;
-    vector<bool> check_read_state() const;
+    bool get_read_state() const; // get expected read state stored in class, not hardware
+    vector<bool> check_read_state() const; // check hardware to see if DAQs are still scanning
+    vector<uint32_t> get_buffer_sizes() const; // get buffer sizes for each DAQ
+    
 
     // calibration functions
     void calibrate_from_vector(int const &channel_number, vector<double> const &temperature_vector, vector<double> const &voltage_vector);
     void calibrate_from_file(int const &channel_number, string const &file_name);
     bool is_calibrated(int const &channel_number) const;
+
+    void clear_calibration(int const &channel_number); // clear calibration for a given channel
+    void copy_calibration(int const &source_channel_number, int const &target_channel_number); // copy calibration from one channel to another
 
     // operational functions
     void start_reading(); // start reading data from the DAQ HATs
