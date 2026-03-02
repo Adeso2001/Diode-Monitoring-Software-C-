@@ -54,7 +54,10 @@ class DAQManager
     void establish_calibration_vectors(); // establish calibration vectors for each channel
     void apply_calibration_config(); // apply calibration configuration for each channel from a config file
     pair<uint16_t, uint32_t> enquire_scan_status(uint8_t const &hat_address) const; // call mcc128_a_in_scan_status to enquire about scan status of a DAQ
-    
+    void cleanup_scan_resources(); // clean up scan resources for all DAQs
+    void reshape_data(vector<vector<double>> &data, int const &num_readings); // turn vector of result vectors into vectors containing voltages of ch1, ch2, ch3, ch4, etc. in that order
+    void average_data(vector<vector<double>> &data, int const &num_readings, int &averages_count); // turn vector of daq readings into vectors containing time, voltage1, temperature1, voltage2, temperature2, etc. in that order, for now leaving temperatures blank
+    void translate_data(vector<vector<double>> &data, int const &averages_count); // fill in temperature columns in data
 
     public:
 
