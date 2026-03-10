@@ -311,6 +311,7 @@ void DAQManager::calibrate_from_file(int const &channel_number, string const &fi
 bool DAQManager::is_calibrated(int const &channel_number) const
 {
     // check id chanel number in question is calibrated
+    return true;
 }
 
 void DAQManager::clear_calibration(int const &channel_number)
