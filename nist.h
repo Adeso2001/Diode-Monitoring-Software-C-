@@ -8,7 +8,15 @@
 #ifndef _NIST_H
 #define _NIST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 double NISTCalcVoltage(unsigned int type, double temperature);
 double NISTCalcTemperature(unsigned int type, double voltage);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
