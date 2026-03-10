@@ -1,6 +1,7 @@
 #ifndef DAQMANAGER_H
 #define DAQMANAGER_H
 
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -12,6 +13,7 @@
 
 using std::string;
 using std::vector;
+using std::pair;
 
 /*
 
@@ -36,10 +38,10 @@ class DAQManager
 
     // Channel information
     vector<std::unique_ptr<Calibration>> calibration_vector; // vector of calibration objects for each channel
-    vector<bool> is_calibrated; // true if the channel is calibrated, false if it is not
+    vector<bool> is_calibrated_vector; // true if the channel is calibrated, false if it is not
     
     // Temp data storage
-    double time_begin; // time the scan began
+    std::chrono::high_resolution_clock::time_point time_begin; // time the scan began
     long averages_performed; // number of averages performed, used to calculate time values
     vector<vector<double>> temp_data_vector; // stores data if there arent enough reading for averaging
 

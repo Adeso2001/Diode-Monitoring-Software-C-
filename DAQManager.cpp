@@ -8,9 +8,14 @@
 
 #include "mcc128.h"
 #include "Calibration_Class.h"
+#include "DAQManager.h"
+#include "gpio.h"
+#include "util.h"
+#include "nist.h"
 
 using std::string;
 using std::vector;
+using std::pair;
 
 // -----------------------------------------------------------------------------
 // Constructor / Destructor
@@ -44,7 +49,7 @@ DAQManager::DAQManager() // constructor
 DAQManager::~DAQManager() // destructor
 {
     // check if DAQs are still scanning and stop reading if they are
-    if (check_read_state() == true)
+    if (get_read_state())
     {
         stop_reading();
     }
@@ -54,10 +59,10 @@ DAQManager::~DAQManager() // destructor
 // Getters
 // -----------------------------------------------------------------------------
 
-int DAQManager::get_num_hats() const {return num_hats;}
+int DAQManager::get_num_hats() const {return num_daqs;}
 vector<uint8_t> DAQManager::get_hat_address_vector() const {return hat_address_vector;}
-bool DAQManager::get_single_ended_mode() const {return single_ended_mode;}
-int DAQManager::get_voltage_range_pm() const {return voltage_range_pm;}
+bool DAQManager::get_single_ended_mode() const {return input_mode == A_IN_MODE_SE;}
+int DAQManager::get_voltage_range_pm() const {return voltage_range == A_IN_RANGE_BIP_10V ? 10 : (voltage_range == A_IN_RANGE_BIP_5V ? 5 : (voltage_range == A_IN_RANGE_BIP_2V ? 2 : 1));}
 double DAQManager::get_sample_rate() const {return sample_rate;}
 double DAQManager::get_averaging_time() const {return averaging_time;}
 int DAQManager::get_averaging_samples() const {return averaging_samples;}
@@ -71,10 +76,10 @@ vector<bool> DAQManager::check_read_state() const
     vector<bool> read_state;
 
     // loop through each DAQ and check if it is still scanning
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         pair<uint16_t, uint32_t> scan_status = enquire_scan_status(*hat_address_iterator);
-        if (scan_status.first == STATUS_RUNNING)
+        if (scan_status.first & STATUS_RUNNING)
         {
             read_state.push_back(true); // add true to read_state vector if DAQ is still scanning
         }
@@ -91,7 +96,7 @@ vector<uint32_t> DAQManager::get_buffer_sizes() const
     vector<uint32_t> buffer_sizes;
 
     // loop through each DAQ and get buffer size
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         buffer_sizes.push_back(enquire_scan_status(*hat_address_iterator).second);
     }
@@ -107,7 +112,7 @@ void DAQManager::connect_daqs()
     int hat_connection_result;
 
     // Loops through vector containing board addresses and opens connection with each board, throws error if connection fails
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         
         hat_connection_result = mcc128_open(*hat_address_iterator);
@@ -120,8 +125,10 @@ void DAQManager::connect_daqs()
 
 void DAQManager::configure_daqs()
 {
+    int hat_initialization_error = 1; // error code for hat initialization failure
+    
     // Loops through vector containing board addresses and sets input mode and voltage range for each board, throws error if setting fails
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         // Set input mode (single ended or differential)
         int hat_mode_result = mcc128_a_in_mode_write(*hat_address_iterator, input_mode);
@@ -145,7 +152,7 @@ void DAQManager::establish_calibration_vectors()
     for (int channel_number = 0; channel_number < num_channels; ++channel_number)
     {
         calibration_vector.push_back(std::make_unique<Calibration>()); // create smart pointer and add to vector
-        is_calibrated.push_back(false); // add false to is_calibrated vector
+        is_calibrated_vector.push_back(false); // add false to is_calibrated vector
     }
 }
 
@@ -171,7 +178,7 @@ pair<uint16_t, uint32_t> DAQManager::enquire_scan_status(uint8_t const &hat_addr
 
 void DAQManager::cleanup_scan_resources()
 {
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         mcc128_a_in_scan_cleanup(*hat_address_iterator);
     }
@@ -254,9 +261,9 @@ void DAQManager::translate_data(vector<vector<double>> &data, int const &average
         for (int channel_iterator{0}; channel_iterator < num_channels; channel_iterator++)
         {
             // interpolate temperature from voltage if channel is calibrated, otherwise leave blank
-            if (is_calibrated[channel_iterator] == true)
+            if (is_calibrated_vector[channel_iterator] == true)
             {
-                data[average_iterator][channel_iterator * 2 + 2] = calibration_vector[channel_iterator]->interpolate_temperature(data[average_iterator][channel_iterator * 2 + 1]);
+                data[average_iterator][channel_iterator * 2 + 2] = calibration_vector[channel_iterator]->interpolate_value(data[average_iterator][channel_iterator * 2 + 1]);
             }
             else
             {
@@ -285,9 +292,9 @@ void DAQManager::calibrate_from_vector(int const &channel_number, vector<double>
     calibration_vector[channel_number]->fill_y_from_std_vector(voltage_vector);
 
     // apply calibration to data
-    calibration_vector[channel_number]->apply_calibration();
+    calibration_vector[channel_number]->calculate_spline();
 
-    is_calibrated[channel_number] = true; // reflect applied calibration in data member
+    is_calibrated_vector[channel_number] = true; // reflect applied calibration in data member
 }
 
 void DAQManager::calibrate_from_file(int const &channel_number, string const &file_name)
@@ -297,8 +304,8 @@ void DAQManager::calibrate_from_file(int const &channel_number, string const &fi
         return;
     }
     calibration_vector[channel_number]->fill_from_file(file_name);
-    calibration_vector[channel_number]->apply_calibration();
-    is_calibrated[channel_number] = true;
+    calibration_vector[channel_number]->calculate_spline();
+    is_calibrated_vector[channel_number] = true;
 }
 
 bool DAQManager::is_calibrated(int const &channel_number) const
@@ -313,7 +320,7 @@ void DAQManager::clear_calibration(int const &channel_number)
         return;
     }
     calibration_vector[channel_number] = std::make_unique<Calibration>();
-    is_calibrated[channel_number] = false;
+    is_calibrated_vector[channel_number] = false;
 }
 
 void DAQManager::copy_calibration(int const &source_channel_number, int const &target_channel_number)
@@ -321,14 +328,14 @@ void DAQManager::copy_calibration(int const &source_channel_number, int const &t
     // verify parameters are valid
     if (source_channel_number < 0 || source_channel_number >= num_channels
         || target_channel_number < 0 || target_channel_number >= num_channels
-        || is_calibrated[source_channel_number] == false)
+        || is_calibrated_vector[source_channel_number] == false)
     {
         return;
     }
 
     // copy calibration from source to target
     calibration_vector[target_channel_number] = std::make_unique<Calibration>(*calibration_vector[source_channel_number]);
-    is_calibrated[target_channel_number] = true;
+    is_calibrated_vector[target_channel_number] = true;
 }
 
 // -----------------------------------------------------------------------------
@@ -346,7 +353,7 @@ void DAQManager::start_reading()
         return;
     }
 
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         scan_result = mcc128_a_in_scan_start(*hat_address_iterator, channel_mask, averaging_samples, sample_rate, options);
         if (scan_result != RESULT_SUCCESS)
@@ -366,7 +373,7 @@ void DAQManager::start_reading()
 void DAQManager::stop_reading()
 {
     //stop all DAQs reading
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         mcc128_a_in_scan_stop(*hat_address_iterator);
     }
@@ -392,14 +399,14 @@ vector<vector<double>> DAQManager::read_data()
     uint16_t status; // status of scan
     int32_t samples_to_read_per_channel{-1}; // number of samples to be read per channel, -1 means all available samples
     double timeout{0.0}; // timeout in seconds, 0.0 means no timeout
-    double buffer{nullptr}; // buffer to store data
+    double buffer; // buffer to store data
     uint32_t buffer_size{0}; // size of buffer
     uint32_t samples_read{0}; // number of samples read
     bool first_read{true}; // true if it is the first read, false if it is not
 
     // creates a vector of vectors, with each inner vector representing a DAQ and containing the unprocessed data read from that DAQ
     int read_result;
-    for (hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
+    for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         read_result = mcc128_a_in_scan_read(*hat_address_iterator, &status, samples_to_read_per_channel, timeout, &buffer, buffer_size, &samples_read);
         data.push_back(vector<double>());
