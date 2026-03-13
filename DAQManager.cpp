@@ -318,11 +318,6 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
     }
     std::cout << "!!!!Failed readings: " << failed_readings << std::endl;
     
-    //REMOVE
-    if (failed_readings > 50)
-    {
-        first_loop = false;
-    }
 
     // Move new array into the place of data array
     std::cout<<"assigning averaged data to data array"<<std::endl;
@@ -519,13 +514,6 @@ vector<vector<double>> DAQManager::read_data()
 
     int num_readings_per_channel = samples_to_read_per_channel;
     int averages_count;
-
-
-    //REMOVE
-    if (first_loop == true)
-    {
-        failed_reading = data;
-    }
 
     std::cout << "reshaping data" << std::endl;
     reshape_data(data, num_readings_per_channel); // turn vector of result vectors into vectors containing voltages of ch1, ch2, ch3, ch4, etc. in that order
