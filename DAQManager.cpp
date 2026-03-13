@@ -246,7 +246,15 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
 
     // move leftover data to temp_data_vector
     std::cout<<"replacing temporary vector"<<std::endl;
-    temp_data_vector = std::vector<std::vector<double>>((data.end() - leftover_data_size), data.end());
+    if (leftover_data_size > 0)
+    {
+        // take the last leftover_data_size readings into the temp buffer
+        temp_data_vector = std::vector<std::vector<double>>(data.end() - leftover_data_size, data.end());
+    }
+    else
+    {
+        temp_data_vector.clear();
+    }
 
     // If not enough data to be averaged, returns empty vector
     if (averages_count == 0)
