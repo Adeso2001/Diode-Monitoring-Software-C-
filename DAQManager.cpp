@@ -70,23 +70,27 @@ long DAQManager::get_averages_performed() const {return averages_performed;}
 vector<vector<double>> DAQManager::get_temp_data_vector() const {return temp_data_vector;}
 bool DAQManager::get_read_state() const {return expected_read_state;}
 
-// Function checks if physical connection with open DAQs still exists
-vector<bool> DAQManager::check_read_state() const 
+// Function checks what physical sample rate being carried out for a given sampling rate (doesnt actually contact boards)
+double DAQManager::check_sample_rate() const
 {
-    vector<bool> read_state;
+    const uint8_t channel_count{8};
+    int return_result;
+    double true_sample_rate{0};
+    return_result = mcc128_a_in_scan_actual_rate(channel_count, sample_rate, &true_sample_rate);
+    
+    return true_sample_rate; 
+}
+
+// Function checks if physical connection with open DAQs still exists
+vector<uint16_t> DAQManager::check_read_state() const 
+{
+    vector<uint16_t> read_state;
 
     // loop through each DAQ and check if it is still scanning
     for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
         pair<uint16_t, uint32_t> scan_status = enquire_scan_status(*hat_address_iterator);
-        if (scan_status.first & STATUS_RUNNING)
-        {
-            read_state.push_back(true); // add true to read_state vector if DAQ is still scanning
-        }
-        else
-        {
-            read_state.push_back(false); // add false to read_state vector if DAQ is not scanning
-        }
+        read_state.push_back(scan_status.first);
     }
     return read_state;
 }
@@ -118,7 +122,11 @@ void DAQManager::connect_daqs()
         hat_connection_result = mcc128_open(*hat_address_iterator);
         if (hat_connection_result != RESULT_SUCCESS)
         {
-            throw hat_connection_result;
+            std::cout << "Error connecting to DAQ at address " << static_cast<int>(*hat_address_iterator) << ": " << hat_connection_result << std::endl;
+        }
+        else
+        {
+            std::cout << "Successfully connected to DAQ at address " << static_cast<int>(*hat_address_iterator) << std::endl;
         }
     }
 }
@@ -187,7 +195,7 @@ void DAQManager::cleanup_scan_resources()
 void DAQManager::reshape_data(vector<vector<double>> &data, int const &num_readings)
 {
     // create a vector of vectors to store the reshaped data
-    std::vector<std::vector<double>> reshaped_data(num_readings, std::vector<double>(num_channels));
+    std::vector<std::vector<double>> reshaped_data(num_readings, std::vector<double>(num_channels, 0.0));
 
     // loop through each reading in a single time step
     for (int reading{0}; reading < num_readings; reading++)
@@ -199,15 +207,27 @@ void DAQManager::reshape_data(vector<vector<double>> &data, int const &num_readi
             for (int channel_iterator{0}; channel_iterator < num_channels_single_daq; channel_iterator++)
             {
                 // add data to reshaped_data
-                reshaped_data[reading][daq_iterator * num_channels_single_daq + channel_iterator] = data[reading][daq_iterator * num_channels_single_daq + channel_iterator];
+                reshaped_data[reading][(daq_iterator * num_channels_single_daq + channel_iterator)] = data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)];
+                
+                if (data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] == std::nan(""))
+                {
+                    std::cout << "value of " << data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] << " measured, but is nan" << std::endl;
+                }
+                else if (data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] > 10 || data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] < -10)
+                {
+                    std::cout << "value of " << data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] << " measured, but is an error value" << std::endl;
+                }
+                    
             }
         }
     }
+    std::cout << "Finished reshaping data" << std::endl;
     data = std::move(reshaped_data);
 }
 
 void DAQManager::average_data(vector<vector<double>> &data, int const &num_readings, int &averages_count)
 {
+    std::cout << "Starting averaging process" << std::endl;
     int temp_data_size;
     int collective_num_readings;
     int leftover_data_size;
@@ -218,15 +238,33 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
     leftover_data_size = collective_num_readings % averaging_samples; // number of readings that will be left over after averaging, so is moved to temp_data_vector
 
     averages_count = (collective_num_readings - leftover_data_size) / averaging_samples;
-
-    // create a vector of vectors to store the averaged data, with columns for time, voltage1, temperature1, voltage2, temperature2, etc.
-    std::vector<std::vector<double>> averaged_data(averages_count, std::vector<double>(num_channels * 2 + 1));
+    std::cout << "averages_count: " << averages_count << std::endl;
 
     // add temp_data_vector to start of new data
+    std::cout<<"inserting temp data into beginning of data vector"<<std::endl;
     data.insert(data.begin(), temp_data_vector.begin(), temp_data_vector.end());
 
     // move leftover data to temp_data_vector
-    temp_data_vector = std::vector<std::vector<double>>(data.end() - leftover_data_size, data.end());
+    std::cout<<"replacing temporary vector"<<std::endl;
+    temp_data_vector = std::vector<std::vector<double>>((data.end() - leftover_data_size), data.end());
+
+    // If not enough data to be averaged, returns empty vector
+    if (averages_count == 0)
+    {
+        std::cout<<"not enough data to average, returning empty vector"<<std::endl;
+        data = vector<vector<double>>();
+        return;
+    }
+
+    // create a vector of vectors to store the averaged data, with columns for time, voltage1, temperature1, voltage2, temperature2, etc.
+    vector<vector<double>> averaged_data(averages_count, vector<double>((num_channels * 2 + 1)));
+    int num_valid_readings= {0}; // integer to store number of valid readings for each channel, used to calculate average
+    int failed_readings = {0}; // integer to store number of failed readings for each channel, used for debugging
+
+    std::cout<<"averaged_data has external size "<<averaged_data.size()<<", and internal size "<<averaged_data[0].size()<<std::endl;
+
+
+    std::cout << "Beginning averaging loop" << std::endl;
 
     // loop through each data sample which will be averaged
     for (int average_iterator{0}; average_iterator < averages_count; average_iterator++)
@@ -237,18 +275,39 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
             // loop through each reading in the single channel sample 
             for (int reading_iterator{0}; reading_iterator < averaging_samples; reading_iterator++)
             {
-                // sum all the readings in the single channel sample
-                average_sum += data[average_iterator * averaging_samples + reading_iterator][channel_iterator];
+                // sum all the readings in the single channel sample, checking that the result is not nan or an error value (greater than 10 or less than -10) before adding to the average sum and counting it as a valid reading
+                
+                if ((data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] != std::nan("")) & (data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] < 10) & (data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] > -10))
+                {
+                    average_sum += data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator];
+                    num_valid_readings++;
+                }
+                else
+                {
+                    //std::cout << "!!!!!!!!invalid reading of " << data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] << " found at average_iterator " << average_iterator << ", channel_iterator " << channel_iterator << ", reading_iterator " << reading_iterator << std::endl;
+                    failed_readings++;
+                }
             }
             // calculate the average of the single channel sample, and assign into to averaged_data at the correct position
-            averaged_data[average_iterator][channel_iterator * 2 + 1] = average_sum / averaging_samples;
+            averaged_data[average_iterator][channel_iterator * 2 + 1] = average_sum / num_valid_readings;
+
             average_sum = 0.0;
+            num_valid_readings = 0;
         }
         // add time to averaged_data
         averaged_data[average_iterator][0] = (average_iterator + averages_performed) * averaging_time;
         averages_performed++;
     }
+    std::cout << "!!!!Failed readings: " << failed_readings << std::endl;
+    
+    //REMOVE
+    if (failed_readings > 50)
+    {
+        first_loop = false;
+    }
 
+    // Move new array into the place of data array
+    std::cout<<"assigning averaged data to data array"<<std::endl;
     data = std::move(averaged_data);
 }
 
@@ -349,6 +408,8 @@ void DAQManager::start_reading()
     uint8_t channel_mask = 0xFF; // scan all channels
     uint32_t options = OPTS_CONTINUOUS;
 
+    std::cout<< "sample rate is" << sample_rate << std::endl;
+
     if (expected_read_state == true)
     {
         return;
@@ -356,11 +417,17 @@ void DAQManager::start_reading()
 
     for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
-        scan_result = mcc128_a_in_scan_start(*hat_address_iterator, channel_mask, averaging_samples, sample_rate, options);
+        scan_result = mcc128_a_in_scan_start(*hat_address_iterator, channel_mask, buffer_size, sample_rate, options);
         if (scan_result != RESULT_SUCCESS)
         {
             std::cout << "Error starting scan for DAQ " << *hat_address_iterator << ": " << scan_result << std::endl;
             return;
+        }
+
+        // sets further daqs to use clock from first to take readings
+        if (hat_address_iterator == hat_address_vector.begin())
+        {
+            options = OPTS_CONTINUOUS | OPTS_EXTCLOCK;
         }
     }
 
@@ -368,6 +435,8 @@ void DAQManager::start_reading()
     time_begin = std::chrono::high_resolution_clock::now(); // set time_begin to current time
     averages_performed = 0;
     temp_data_vector.clear(); // clear temp data vector to start fresh
+
+    std::cout << "scan started" << std::endl;
     
 }
 
@@ -394,23 +463,42 @@ vector<vector<double>> DAQManager::read_data()
         return vector<vector<double>>();
     }
 
+    uint32_t buffer_size_uint32;
+    int test_result_temp = mcc128_a_in_scan_buffer_size(hat_address_vector[0], &buffer_size_uint32);
+    std::cout << "Buffer size for DAQ at address " << static_cast<int>(hat_address_vector[0]) << " is " << buffer_size_uint32 << std::endl;
+
     vector<vector<double>> data;
     vector<double> temp_data;
 
     uint16_t status; // status of scan
     int32_t samples_to_read_per_channel{-1}; // number of samples to be read per channel, -1 means all available samples
     double timeout{0.0}; // timeout in seconds, 0.0 means no timeout
-    double buffer; // buffer to store data
-    uint32_t buffer_size{0}; // size of buffer
+    
+    //BUFFER DEFINITION WHICH MAY NEED WORK
+
+    //double buffer[(buffer_size * 16)]; // buffer to store data
+    
+    //std::vector<double> buffer_vec(buffer_size * 16);
+
+     // Allocate buffer with size based on actual DAQ buffer size, plus margin
+    std::vector<double> buffer_vec((buffer_size * 16));
+
+    double* buffer = buffer_vec.data();
+    
     uint32_t samples_read{0}; // number of samples read
     bool first_read{true}; // true if it is the first read, false if it is not
 
+    std::cout<<"buffer size is defined as " << buffer_size << std::endl;
     // creates a vector of vectors, with each inner vector representing a DAQ and containing the unprocessed data read from that DAQ
     int read_result;
     for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
-        read_result = mcc128_a_in_scan_read(*hat_address_iterator, &status, samples_to_read_per_channel, timeout, &buffer, buffer_size, &samples_read);
-        data.push_back(vector<double>());
+        read_result = mcc128_a_in_scan_read(*hat_address_iterator, &status, samples_to_read_per_channel, timeout, buffer, buffer_size_uint32, &samples_read);
+        
+        // move buffer data into temp_data vector, which is pushed back into data vector
+        std::cout<<"Read " << samples_read << " samples from DAQ at address " << static_cast<int>(*hat_address_iterator) << std::endl;
+        std::cout<<"Buffer size is " << buffer_size << std::endl;
+        data.push_back(vector<double>(buffer, (buffer + static_cast<int>(samples_read)))); // create inner vector of correct size and add to data vector
         if (first_read == true)
         {
             samples_to_read_per_channel = samples_read;
@@ -421,8 +509,21 @@ vector<vector<double>> DAQManager::read_data()
     int num_readings_per_channel = samples_to_read_per_channel;
     int averages_count;
 
+
+    //REMOVE
+    if (first_loop == true)
+    {
+        failed_reading = data;
+    }
+
+    std::cout << "reshaping data" << std::endl;
     reshape_data(data, num_readings_per_channel); // turn vector of result vectors into vectors containing voltages of ch1, ch2, ch3, ch4, etc. in that order
+    
+    std::cout << "averaging data" << std::endl;
     average_data(data, num_readings_per_channel, averages_count); // turn vector of daq readings into vectors containing time, voltage1, temperature1, voltage2, temperature2, etc. in that order, for now leaving temperatures blank
+    
+    std::cout << "translating data" << std::endl;
     translate_data(data, averages_count); // fill in temperature columns in data
+    
     return data;
 }

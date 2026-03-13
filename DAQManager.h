@@ -46,9 +46,11 @@ class DAQManager
     vector<vector<double>> temp_data_vector; // stores data if there arent enough reading for averaging
 
     // sampling constants
-    const double sample_rate = 12500; // samples per second
+    const double sample_rate = 2000; // samples per second
     const double averaging_time = 0.5; // seconds
+    const int buffer_size = sample_rate * 2; // size of buffer for reading data, set to 10 seconds worth of data
     const int averaging_samples = sample_rate * averaging_time; // number of samples wait before averaging
+    
 
     // Internal Methods
     void connect_daqs(); // connect to DAQs
@@ -62,7 +64,8 @@ class DAQManager
     void translate_data(vector<vector<double>> &data, int const &averages_count); // fill in temperature columns in data
 
     public:
-
+    vector<vector<double>> failed_reading;
+    bool first_loop{true};
     // constructor
     DAQManager();
 
@@ -75,16 +78,17 @@ class DAQManager
     bool get_single_ended_mode() const;
 
     int get_voltage_range_pm() const;
-    double get_sample_rate() const;
     double get_averaging_time() const;
     int get_averaging_samples() const;
     long get_averages_performed() const;
     vector<vector<double>> get_temp_data_vector() const;
 
     bool get_read_state() const; // get expected read state stored in class, not hardware
-    vector<bool> check_read_state() const; // check hardware to see if DAQs are still scanning
+    vector<uint16_t> check_read_state() const; // check hardware to see if DAQs are still scanning
     vector<uint32_t> get_buffer_sizes() const; // get buffer sizes for each DAQ
     
+    double get_sample_rate() const; // returns defenition of sample rate in code
+    double check_sample_rate() const; // returns sample rate stored in DAQ hardware (may be changed to comply with hardware level clock)
 
     // calibration functions
     void calibrate_from_vector(int const &channel_number, vector<double> const &temperature_vector, vector<double> const &voltage_vector);
