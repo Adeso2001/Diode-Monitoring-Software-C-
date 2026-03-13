@@ -194,6 +194,16 @@ void DAQManager::cleanup_scan_resources()
 
 void DAQManager::reshape_data(vector<vector<double>> &data, int const &num_readings)
 {
+       // just before the loops in reshape_data
+   for (int daq = 0; daq < num_daqs; ++daq) {
+    std::size_t expected = static_cast<std::size_t>(num_readings) *
+                           static_cast<std::size_t>(num_channels_single_daq);
+    if (data[daq].size() != expected) {
+        std::cout << "ERROR: data[" << daq << "].size() = " << data[daq].size()
+                  << ", expected " << expected << std::endl;
+        }
+    }
+
     // create a vector of vectors to store the reshaped data
     std::vector<std::vector<double>> reshaped_data(num_readings, std::vector<double>(num_channels, 0.0));
 
@@ -504,9 +514,14 @@ vector<vector<double>> DAQManager::read_data()
         read_result = mcc128_a_in_scan_read(*hat_address_iterator, &status, samples_to_read_per_channel, timeout, buffer, buffer_size_uint32, &samples_read);
         
         // move buffer data into temp_data vector, which is pushed back into data vector
-        std::cout<<"Read " << samples_read << " samples from DAQ at address " << static_cast<int>(*hat_address_iterator) << std::endl;
+        std::cout<<"Read " << samples_read << " samples per channel from DAQ at address " << static_cast<int>(*hat_address_iterator) << std::endl;
         std::cout<<"Buffer size is " << buffer_size << std::endl;
-        data.push_back(vector<double>(buffer, (buffer + static_cast<int>(samples_read)))); // create inner vector of correct size and add to data vector
+
+        // Each DAQ returns interleaved samples for all channels:
+        // total doubles in buffer = samples_read * num_channels_single_daq
+        const std::size_t total_samples = static_cast<std::size_t>(samples_read) * static_cast<std::size_t>(num_channels_single_daq);
+        data.push_back(vector<double>(buffer, buffer + total_samples)); // create inner vector of correct size and add to data vector
+        std::cout<<"Stored " << data.back().size() << " doubles for this DAQ" << std::endl;
         if (first_read == true)
         {
             samples_to_read_per_channel = samples_read;
