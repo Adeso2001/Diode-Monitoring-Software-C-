@@ -483,7 +483,6 @@ vector<vector<double>> DAQManager::read_data()
 
     uint32_t buffer_size_uint32;
     int test_result_temp = mcc128_a_in_scan_buffer_size(hat_address_vector[0], &buffer_size_uint32);
-    std::cout << "Buffer size for DAQ at address " << static_cast<int>(hat_address_vector[0]) << " is " << buffer_size_uint32 << std::endl;
 
     vector<vector<double>> data;
     vector<double> temp_data;
@@ -491,22 +490,15 @@ vector<vector<double>> DAQManager::read_data()
     uint16_t status; // status of scan
     int32_t samples_to_read_per_channel{-1}; // number of samples to be read per channel, -1 means all available samples
     double timeout{0.0}; // timeout in seconds, 0.0 means no timeout
-    
-    //BUFFER DEFINITION WHICH MAY NEED WORK
 
-    //double buffer[(buffer_size * 16)]; // buffer to store data
-    
-    //std::vector<double> buffer_vec(buffer_size * 16);
-
-     // Allocate buffer with size based on actual DAQ buffer size, plus margin
-    std::vector<double> buffer_vec((buffer_size * 16));
+    // Allocate buffer with size based on actual DAQ buffer size, plus margin
+    std::vector<double> buffer_vec(buffer_size * num_channels_single_daq);
 
     double* buffer = buffer_vec.data();
     
-    uint32_t samples_read{0}; // number of samples read
+    uint32_t samples_read{0}; // number of samples read per channel
     bool first_read{true}; // true if it is the first read, false if it is not
 
-    std::cout<<"buffer size is defined as " << buffer_size << std::endl;
     // creates a vector of vectors, with each inner vector representing a DAQ and containing the unprocessed data read from that DAQ
     int read_result;
     for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
@@ -514,14 +506,10 @@ vector<vector<double>> DAQManager::read_data()
         read_result = mcc128_a_in_scan_read(*hat_address_iterator, &status, samples_to_read_per_channel, timeout, buffer, buffer_size_uint32, &samples_read);
         
         // move buffer data into temp_data vector, which is pushed back into data vector
-        std::cout<<"Read " << samples_read << " samples per channel from DAQ at address " << static_cast<int>(*hat_address_iterator) << std::endl;
-        std::cout<<"Buffer size is " << buffer_size << std::endl;
-
         // Each DAQ returns interleaved samples for all channels:
         // total doubles in buffer = samples_read * num_channels_single_daq
         const std::size_t total_samples = static_cast<std::size_t>(samples_read) * static_cast<std::size_t>(num_channels_single_daq);
         data.push_back(vector<double>(buffer, buffer + total_samples)); // create inner vector of correct size and add to data vector
-        std::cout<<"Stored " << data.back().size() << " doubles for this DAQ" << std::endl;
         if (first_read == true)
         {
             samples_to_read_per_channel = samples_read;

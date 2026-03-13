@@ -64,8 +64,7 @@ class DAQManager
     void translate_data(vector<vector<double>> &data, int const &averages_count); // fill in temperature columns in data
 
     public:
-    vector<vector<double>> failed_reading;
-    bool first_loop{true};
+    
     // constructor
     DAQManager();
 

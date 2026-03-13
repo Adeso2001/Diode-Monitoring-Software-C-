@@ -48,23 +48,5 @@ int main()
     
     daq_manager.stop_reading();
 
-    int i{0};
-
-    for (auto data_iterator = daq_manager.failed_reading.begin(); data_iterator != daq_manager.failed_reading.end(); ++data_iterator)
-    {
-        std::vector<double> data_first_line{*data_iterator};
-
-        for(auto result_iterator = data_first_line.begin(); result_iterator != data_first_line.end(); ++result_iterator)
-        {
-            std::cout<<*result_iterator<<", ";
-        }
-        std::cout<<std::endl;
-        ++i;
-        if (i%16 == 0)
-        {
-            std::cout<<"\n";
-        }
-    }
-
     return 0;
 }
