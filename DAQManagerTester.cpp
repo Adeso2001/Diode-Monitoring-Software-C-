@@ -55,7 +55,7 @@ int main()
             }
         }
         
-        auto data = daq_manager.read_data();
+        auto data = daq_manager.take_buffered_data();
 
         std::cout << std::fixed;
         std::cout.precision(6);
@@ -86,7 +86,6 @@ int main()
 
     // Restore terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &old_tio);
-
     
     daq_manager.stop_reading();
 

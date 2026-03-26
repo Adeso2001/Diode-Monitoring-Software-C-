@@ -235,13 +235,11 @@ void DAQManager::reshape_data(vector<vector<double>> &data, int const &num_readi
             }
         }
     }
-    std::cout << "Finished reshaping data" << std::endl;
     data = std::move(reshaped_data);
 }
 
 void DAQManager::average_data(vector<vector<double>> &data, int const &num_readings, int &averages_count)
 {
-    std::cout << "Starting averaging process" << std::endl;
     int temp_data_size;
     int collective_num_readings;
     int leftover_data_size;
@@ -252,14 +250,11 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
     leftover_data_size = collective_num_readings % averaging_samples; // number of readings that will be left over after averaging, so is moved to temp_data_vector
 
     averages_count = (collective_num_readings - leftover_data_size) / averaging_samples;
-    std::cout << "averages_count: " << averages_count << std::endl;
 
     // add temp_data_vector to start of new data
-    std::cout<<"inserting temp data into beginning of data vector"<<std::endl;
     data.insert(data.begin(), temp_data_vector.begin(), temp_data_vector.end());
 
     // move leftover data to temp_data_vector
-    std::cout<<"replacing temporary vector"<<std::endl;
     if (leftover_data_size > 0)
     {
         // take the last leftover_data_size readings into the temp buffer
@@ -273,7 +268,6 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
     // If not enough data to be averaged, returns empty vector
     if (averages_count == 0)
     {
-        std::cout<<"not enough data to average, returning empty vector"<<std::endl;
         data = vector<vector<double>>();
         return;
     }
@@ -282,11 +276,7 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
     vector<vector<double>> averaged_data(averages_count, vector<double>((num_channels * 2 + 1)));
     int num_valid_readings= {0}; // integer to store number of valid readings for each channel, used to calculate average
     int failed_readings = {0}; // integer to store number of failed readings for each channel, used for debugging
-
-    std::cout<<"averaged_data has external size "<<averaged_data.size()<<", and internal size "<<averaged_data[0].size()<<std::endl;
-
-
-    std::cout << "Beginning averaging loop" << std::endl;    // loop through each data sample which will be averaged
+    
     for (int average_iterator{0}; average_iterator < averages_count; average_iterator++)
     {
         // loop through each channel in the data sample
@@ -318,11 +308,11 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
         averaged_data[average_iterator][0] = (averages_performed) * averaging_time;
         averages_performed++;
     }
-    std::cout << "!!!!Failed readings: " << failed_readings << std::endl;
-    
+    if (failed_readings > 0){
+        std::cout << "!!!!Failed readings: " << failed_readings << std::endl;
+    }
 
     // Move new array into the place of data array
-    std::cout<<"assigning averaged data to data array"<<std::endl;
     data = std::move(averaged_data);
 }
 
@@ -422,8 +412,6 @@ void DAQManager::start_reading()
     int scan_result;
     uint8_t channel_mask = 0xFF; // scan all channels
     uint32_t options = OPTS_CONTINUOUS;
-
-    std::cout<< "sample rate is" << sample_rate << std::endl;
 
     if (expected_read_state == true)
     {
@@ -531,13 +519,8 @@ vector<vector<double>> DAQManager::read_data()
     int num_readings_per_channel = samples_to_read_per_channel;
     int averages_count;
 
-    std::cout << "reshaping data" << std::endl;
-    reshape_data(data, num_readings_per_channel); // turn vector of result vectors into vectors containing voltages of ch1, ch2, ch3, ch4, etc. in that order
-    
-    std::cout << "averaging data" << std::endl;
+    reshape_data(data, num_readings_per_channel); // turn vector of result vectors into vectors containing voltages of ch1, ch2, ch3, ch4, etc. in that order  
     average_data(data, num_readings_per_channel, averages_count); // turn vector of daq readings into vectors containing time, voltage1, temperature1, voltage2, temperature2, etc. in that order, for now leaving temperatures blank
-    
-    std::cout << "translating data" << std::endl;
     translate_data(data, averages_count); // fill in temperature columns in data
     
     return data;
