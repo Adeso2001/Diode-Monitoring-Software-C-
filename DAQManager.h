@@ -46,8 +46,8 @@ class DAQManager
     vector<vector<double>> temp_data_vector; // stores data if there arent enough reading for averaging
 
     // sampling constants
-    const double sample_rate = 2000; // samples per second
-    const double averaging_time = 0.5; // seconds
+    const double sample_rate = 10000; // samples per second
+    const double averaging_time = 0.2; // seconds
     const int buffer_size = sample_rate * 2; // size of buffer for reading data, set to 10 seconds worth of data
     const int averaging_samples = sample_rate * averaging_time; // number of samples wait before averaging
     

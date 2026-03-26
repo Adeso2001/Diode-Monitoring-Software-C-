@@ -223,7 +223,7 @@ void DAQManager::reshape_data(vector<vector<double>> &data, int const &num_readi
                 {
                     std::cout << "value of " << data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] << " measured, but is nan" << std::endl;
                 }
-                else if (data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] > 10 || data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] < -10)
+                else if (data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] > 10.5 || data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] < -10.5)
                 {
                     std::cout << "value of " << data[daq_iterator][(reading * num_channels_single_daq + channel_iterator)] << " measured, but is an error value" << std::endl;
                 }
@@ -282,9 +282,7 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
     std::cout<<"averaged_data has external size "<<averaged_data.size()<<", and internal size "<<averaged_data[0].size()<<std::endl;
 
 
-    std::cout << "Beginning averaging loop" << std::endl;
-
-    // loop through each data sample which will be averaged
+    std::cout << "Beginning averaging loop" << std::endl;    // loop through each data sample which will be averaged
     for (int average_iterator{0}; average_iterator < averages_count; average_iterator++)
     {
         // loop through each channel in the data sample
@@ -295,7 +293,7 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
             {
                 // sum all the readings in the single channel sample, checking that the result is not nan or an error value (greater than 10 or less than -10) before adding to the average sum and counting it as a valid reading
                 
-                if ((data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] != std::nan("")) & (data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] < 10) & (data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] > -10))
+                if ((data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] != std::nan("")) & (data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] < 10.5) & (data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator] > -10.5))
                 {
                     average_sum += data[(average_iterator * averaging_samples + reading_iterator)][channel_iterator];
                     num_valid_readings++;
@@ -313,7 +311,7 @@ void DAQManager::average_data(vector<vector<double>> &data, int const &num_readi
             num_valid_readings = 0;
         }
         // add time to averaged_data
-        averaged_data[average_iterator][0] = (average_iterator + averages_performed) * averaging_time;
+        averaged_data[average_iterator][0] = (averages_performed) * averaging_time;
         averages_performed++;
     }
     std::cout << "!!!!Failed readings: " << failed_readings << std::endl;
