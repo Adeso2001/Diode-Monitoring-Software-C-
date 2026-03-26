@@ -5,6 +5,10 @@
 #include <utility>
 #include <chrono>
 #include <cmath>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <iterator>
 
 #include "mcc128.h"
 #include "Calibration_Class.h"
@@ -446,6 +450,12 @@ void DAQManager::start_reading()
     time_begin = std::chrono::high_resolution_clock::now(); // set time_begin to current time
     averages_performed = 0;
     temp_data_vector.clear(); // clear temp data vector to start fresh
+    {
+        std::lock_guard<std::mutex> lock(buffered_data_mutex);
+        buffered_data_vector.clear();
+    }
+    reading_thread_running = true;
+    reading_thread = std::thread(&DAQManager::reading_loop, this);
 
     std::cout << "scan started" << std::endl;
     
@@ -453,6 +463,13 @@ void DAQManager::start_reading()
 
 void DAQManager::stop_reading()
 {
+    // stop worker thread first so it no longer calls read_data()
+    reading_thread_running = false;
+    if (reading_thread.joinable())
+    {
+        reading_thread.join();
+    }
+
     //stop all DAQs reading
     for (auto hat_address_iterator = hat_address_vector.begin(); hat_address_iterator != hat_address_vector.end(); ++hat_address_iterator)
     {
@@ -473,6 +490,7 @@ vector<vector<double>> DAQManager::read_data()
     {
         return vector<vector<double>>();
     }
+    std::lock_guard<std::mutex> read_lock(read_data_mutex);
 
     uint32_t buffer_size_uint32;
     int test_result_temp = mcc128_a_in_scan_buffer_size(hat_address_vector[0], &buffer_size_uint32);
@@ -523,4 +541,31 @@ vector<vector<double>> DAQManager::read_data()
     translate_data(data, averages_count); // fill in temperature columns in data
     
     return data;
+}
+
+void DAQManager::reading_loop()
+{
+    while (reading_thread_running)
+    {
+        vector<vector<double>> data = read_data();
+        if (!data.empty())
+        {
+            std::lock_guard<std::mutex> lock(buffered_data_mutex);
+            buffered_data_vector.insert(
+                buffered_data_vector.end(),
+                std::make_move_iterator(data.begin()),
+                std::make_move_iterator(data.end())
+            );
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
+
+vector<vector<double>> DAQManager::take_buffered_data()
+{
+    std::lock_guard<std::mutex> lock(buffered_data_mutex);
+    vector<vector<double>> output = std::move(buffered_data_vector);
+    buffered_data_vector.clear();
+    return output;
 }

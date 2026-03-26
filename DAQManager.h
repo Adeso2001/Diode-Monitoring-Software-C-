@@ -7,6 +7,9 @@
 #include <vector>
 #include <memory>
 #include <utility>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 #include "mcc128.h"
 #include "Calibration_Class.h"
@@ -34,7 +37,7 @@ class DAQManager
     int num_daqs; // number of DAQs in the system
     int num_channels_single_daq; // number of channels in a single DAQ
     int num_channels; // number of channels in the system
-    bool expected_read_state; // true if the DAQ HAT is reading data, false if it is not
+    std::atomic<bool> expected_read_state; // true if the DAQ HAT is reading data, false if it is not
 
     // Channel information
     vector<std::unique_ptr<Calibration>> calibration_vector; // vector of calibration objects for each channel
@@ -44,6 +47,11 @@ class DAQManager
     std::chrono::high_resolution_clock::time_point time_begin; // time the scan began
     long averages_performed; // number of averages performed, used to calculate time values
     vector<vector<double>> temp_data_vector; // stores data if there arent enough reading for averaging
+    std::thread reading_thread; // worker thread for periodic read_data() calls
+    std::atomic<bool> reading_thread_running{false}; // controls worker thread lifetime
+    std::mutex read_data_mutex; // protects shared state used inside read_data()
+    std::mutex buffered_data_mutex; // protects buffered_data_vector
+    vector<vector<double>> buffered_data_vector; // thread-collected data exposed via move/drain API
 
     // sampling constants
     const double sample_rate = 10000; // samples per second
@@ -62,7 +70,10 @@ class DAQManager
     void reshape_data(vector<vector<double>> &data, int const &num_readings); // turn vector of result vectors into vectors containing voltages of ch1, ch2, ch3, ch4, etc. in that order
     void average_data(vector<vector<double>> &data, int const &num_readings, int &averages_count); // turn vector of daq readings into vectors containing time, voltage1, temperature1, voltage2, temperature2, etc. in that order, for now leaving temperatures blank
     void translate_data(vector<vector<double>> &data, int const &averages_count); // fill in temperature columns in data
+    void reading_loop(); // worker loop that periodically calls read_data()
 
+    vector<vector<double>> read_data(); // return averaged data from set number of DAQ HAT readings
+    
     public:
     
     // constructor
@@ -101,7 +112,7 @@ class DAQManager
     void start_reading(); // start reading data from the DAQ HATs
     void stop_reading(); // stop reading data from the DAQ HATs and perform cleanup
 
-    vector<vector<double>> read_data(); // return averaged data from set number of DAQ HAT readings
+    vector<vector<double>> take_buffered_data(); // move out and clear thread-buffered data
 
 };
 #endif
