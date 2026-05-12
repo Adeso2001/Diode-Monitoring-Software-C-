@@ -8,7 +8,7 @@
 
 // Multimap for main thread commands, maps command strings to integers representing which thread 
 // should carry out the command.
-std::multimap<std::string, int>& mainCommandMap()
+std::multimap<std::string, int>& mainCommandQueueDirector()
 {
     static std::multimap<std::string, int> map;
 
@@ -58,6 +58,24 @@ std::multimap<std::string, int>& mainCommandMap()
         {"D OFF 15", 2},
         {"D ON 16", 2},
         {"D OFF 16", 2}
+    };
+
+    return map;
+}
+
+// enum to make defining main thread commands easier
+enum class MainCommands
+{
+    QUIT = 0
+};
+
+// Map for main thread commands, maps command strings to MainCommands enum values representing which command to carry out.
+std::map<std::string, MainCommands>& mainCommandMap()
+{
+    static std::map<std::string, MainCommands> map;
+
+    map = {
+        {"QUIT", MainCommands::QUIT}
     };
 
     return map;
@@ -169,15 +187,22 @@ std::map<std::string, DAQCommands>& daqCommandMap()
 // DiodeProgram
 // ============================================================
 
-// TODO
+
 DiodeProgram::DiodeProgram()
 {
-    
+    // any necessary initialization upon construction can be done here  
 }
 
-// TODO
+// default destructor, will clean up resources when DiodeProgram object goes out of scope
 DiodeProgram::~DiodeProgram()
 {
+    shutdownProcedure();
+
+    if (mainThread.joinable()) 
+    {
+        mainThreadRunning = false; // signal main thread to stop if it isn't already
+        mainThread.join();
+    }
     
 }
 
@@ -414,7 +439,9 @@ void DiodeProgram::serialPortLoop()
     serialManager.close();
 }
 
-// TODO
+// Function which runs main application loop, to be run in a separate thread. Continuously checks 
+// for commands to carry out until the program is quit. Acts as an intermediary between the 
+// other threads.
 void DiodeProgram::mainAppLoop()
 {
     // Initialisation?
@@ -422,6 +449,10 @@ void DiodeProgram::mainAppLoop()
     while(mainThreadRunning)
     {
         // check command queue and carry out commands
+        checkMainCommands();
+
+        // sleep for a bit
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     shutdownProcedure();
@@ -446,10 +477,23 @@ bool DiodeProgram::startupProcedure()
     return true;
 }
 
-// TODO
+/*
+Shuts down all threads and resources for the program in a clean way, 
+by signalling threads to stop and joining them. Called at the end of 
+main thread loop, and in the destructor to ensure resources are cleaned up 
+when DiodeProgram object goes out of scope. 
+*/
 bool DiodeProgram::shutdownProcedure()
 {
-    
+    // signal threads to stop
+    daqManagerRunning = false;
+    arduinoNanoRunning = false;
+    serialPortRunning = false;
+
+    // join threads to clean up resources
+    if (daqManagerThread.joinable()) daqManagerThread.join();
+    if (arduinoNanoThread.joinable()) arduinoNanoThread.join();
+    if (serialPortThread.joinable()) serialPortThread.join();
 }
 
 /* Helper function to carry out temperature/voltage requests from SerialPort thread.
@@ -705,16 +749,71 @@ void DiodeProgram::carryOutArduinoCommand(std::string &command, ArduinoNano &ard
     }
 }
 
-//TODO
+// checks over all commands in the main command queue, sending them to be carried out or to the relevant 
+// command queue then removing them in a thread safe manner.
 void DiodeProgram::checkMainCommands()
 {
-    
+    int executionLocation;
+    std::string command;
+
+    while (!mainCommandQueue.empty())
+    {
+        // get command at front of queue and remove it from the queue
+        {
+            std::lock_guard<std::mutex> lock(mainCommandQueueMutex);
+            command = mainCommandQueue.front();
+            mainCommandQueue.pop();
+        }
+
+        executionLocation = mainCommandQueueDirector().find(command)->second;
+        
+        // execute command or place into relevant command queue
+        if (executionLocation == 0) // main thread command
+        {
+            carryOutMainCommand(command);
+        }
+        else if (executionLocation == 1) // Daq command
+        {
+            std::lock_guard<std::mutex> lock(daqCommandQueueMutex);
+            daqCommandQueue.push(command);
+        }
+        else if (executionLocation == 2) // arduino command
+        {
+            std::lock_guard<std::mutex> lock(arduinoCommandQueueMutex);
+            arduinoCommandQueue.push(command);
+        }
+        else
+        {
+            std::cout << "Command unable to be directed to valid execution thread: " << command << std::endl;
+        }
+    }
 }
 
-//TODO
+// carries out a main thread command, which are specified using MainCommands enum values and
+// mainCommandMap map.
 void DiodeProgram::carryOutMainCommand(std::string &command)
 {
-    
+    std::map<std::string, MainCommands> commandMap = mainCommandMap();
+    auto commandIndex = commandMap.find(command);
+
+    // if command is not found in map, print error and return
+    if (commandIndex == commandMap.end())
+    {
+        std::cout << "Invalid Main Thread command: " << command << std::endl;
+        return;
+    }
+
+    std::cout << "Main Thread command executing: " << command << std::endl;
+
+    // Execute the corresponding command based on the enum value
+    switch (commandIndex->second)
+    {
+        case MainCommands::QUIT:
+            quitApp();
+            break;
+        default:
+            std::cout << "Unknown Main Thread command: " << command << std::endl;
+    }
 }
 
 // ============================================================
@@ -735,7 +834,8 @@ void DiodeProgram::run()
    mainThread = std::thread(&DiodeProgram::mainAppLoop, this);
 }
 
-//TODO
+// stops main thread loop, which will trigger shutdown procedure and clean up of all threads 
+// and resources.
 void DiodeProgram::quitApp()
 {
     mainThreadRunning = false;
