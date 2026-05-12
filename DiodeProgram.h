@@ -44,10 +44,12 @@ class DiodeProgram
         std::queue<std::string> mainCommandQueue; // Command queue for main thread to carry out commands from SerialPort thread
         std::queue<std::string> serialWriteQueue; // Command queue for SerialPort thread to carry out commands from main thread or Arduino Nano thread
         std::queue<std::string> arduinoCommandQueue; // Command queue for Arduino Nano thread to carry out commands from SerialPort thread
+        std::queue<std::string> daqCommandQueue; // Command queue for daq control commands
 
         std::mutex mainCommandQueueMutex; // Mutex for main command queue
         std::mutex serialWriteQueueMutex; // Mutex for serial write queue
         std::mutex arduinoCommandQueueMutex; // Mutex for Arduino Nano command queue
+        std::mutex daqCommandQueueMutex; // Mutex for daq command queue
         std::mutex currentTemperaturesMutex; // Mutex for currentTemperatures
         std::mutex currentVoltagesMutex; // Mutex for currentVoltages
         std::mutex historicalDataMutex; // Mutex for historicalData
@@ -64,11 +66,11 @@ class DiodeProgram
 
         void serialTVRequest(std::string &command); // Helper function to carry out temperature/voltage requests from SerialPort thread, takes command as argument
         
-        void checkDiodeCommands(); // Helper function to carry out diode control requests from SerialPort thread, takes command as argument
-        void carryOutDiodeCommand(std::string &command); // Helper function to carry out a diode control command, takes command as argument
+        void checkDaqCommands(DAQManager &daqManager); // Helper function to carry out daq control requests from SerialPort thread, takes command as argument
+        void carryOutDaqCommand(std::string &command, DAQManager &daqManager); // Helper function to carry out a daq control command, takes command as argument
 
-        void checkArduinoCommands(); // Helper function to carry out commands from SerialPort thread to Arduino Nano thread, takes command as argument
-        void carryOutArduinoCommand(std::string &command); // Helper function to carry out a command from SerialPort thread to Arduino Nano thread, takes command as argument
+        void checkArduinoCommands(ArduinoNano &arduinoNano); // Helper function to carry out commands from SerialPort thread to Arduino Nano thread, takes command as argument
+        void carryOutArduinoCommand(std::string &command, ArduinoNano &arduinoNano); // Helper function to carry out a command from SerialPort thread to Arduino Nano thread, takes command as argument
 
         void checkMainCommands(); // Helper function to carry out commands from SerialPort thread to main thread, takes command as argument
         void carryOutMainCommand(std::string &command); // Helper function to carry out a command from SerialPort thread to main thread, takes command as argument

@@ -185,6 +185,8 @@ DiodeProgram::~DiodeProgram()
 // Private helper functions
 // ============================================================
 
+// Function which runs DAQManager loop, to be run in a separate thread. Initializes DAQManager, 
+// then continuously takes data from it and carries out commands until the program is quit.
 void DiodeProgram::daqManagerLoop()
 {
     // initialise DAQManager
@@ -252,7 +254,7 @@ void DiodeProgram::daqManagerLoop()
         }
 
         // check command queue and carry out commands
-        checkDiodeCommands();
+        checkDaqCommands(daqManager);
 
         // sleep for a bit
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -267,6 +269,8 @@ void DiodeProgram::daqManagerLoop()
     std::cout << "csv file closed" << std::endl;
 }
 
+// Function which runs Arduino Nano loop, to be run in a separate thread. Initializes Arduino Nano,
+// then continuously checks for commands to carry out until the program is quit.
 void DiodeProgram::arduinoNanoLoop()
 {
     // initialise Arduino Nano
@@ -299,7 +303,7 @@ void DiodeProgram::arduinoNanoLoop()
     while(arduinoNanoRunning)
     {
         // check command queue and carry out commands
-        checkArduinoCommands();
+        checkArduinoCommands(nanoManager);
 
         // sleep for a bit
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -313,6 +317,8 @@ void DiodeProgram::arduinoNanoLoop()
     }
 }
 
+// Function which runs SerialPort loop, to be run in a separate thread. Initializes SerialPort,
+// then continuously checks for commands to carry out and reads incoming data until the program is quit.
 void DiodeProgram::serialPortLoop()
 {
     SerialPort serialManager;
@@ -421,6 +427,8 @@ void DiodeProgram::mainAppLoop()
     shutdownProcedure();
 }
 
+// Initialises all relevant threads and resources for the program. Option left open for error handling, 
+// currently just returns true at the end.
 bool DiodeProgram::startupProcedure()
 {
     // start DAQManager thread
@@ -434,6 +442,8 @@ bool DiodeProgram::startupProcedure()
     // start Serial Port thread
     serialPortRunning = true;
     serialPortThread = std::thread(&DiodeProgram::serialPortLoop, this);
+
+    return true;
 }
 
 // TODO
@@ -493,28 +503,206 @@ void DiodeProgram::serialTVRequest(std::string &command)
     }
 }
 
-//TODO
-void DiodeProgram::checkDiodeCommands()
+// checks over all commands in the diode command queue, sending them to be carried out
+// then removing them in a thread safe manner.
+void DiodeProgram::checkDaqCommands(DAQManager &daqManager)
 {
-   
+   std::lock_guard<std::mutex> lock(daqCommandQueueMutex);
+    while (!daqCommandQueue.empty())
+    {
+        // get command at front of queue and remove it from the queue
+        std::string command = daqCommandQueue.front();
+        daqCommandQueue.pop();
+
+        carryOutDaqCommand(command, daqManager);
+    }
 }
 
-//TODO
-void DiodeProgram::carryOutDiodeCommand(std::string &command)
+// carries out a diode control command, which are specified using DAQCommands enum values and
+// daqCommandMap map.
+void DiodeProgram::carryOutDaqCommand(std::string &command, DAQManager &daqManager)
 {
-    
+    std::map<std::string, DAQCommands> commandMap = daqCommandMap();
+    auto commandIndex = commandMap.find(command);
+
+    // if command is not found in map, print error and return
+    if (commandIndex == commandMap.end())
+    {
+        std::cout << "Invalid DAQ Thread command: " << command << std::endl;
+        return;
+    }
+
+    std::cout << "DAQ Thread command executing: " << command << std::endl; 
+
+    // Execute the corresponding command based on the enum value
+    switch (commandIndex->second)
+    {
+        case DAQCommands::START_DAQ:
+            if (daqManager.get_read_state())
+            {
+                std::cout << "DAQ is already reading, ignoring start command" << std::endl;
+                return;
+            }
+            else
+            {
+                std::cout << "Starting DAQ..." << std::endl;
+                daqManager.start_reading();
+                break;
+            }
+
+        case DAQCommands::STOP_DAQ:
+            if (!daqManager.get_read_state())
+            {
+                std::cout << "DAQ is already stopped, ignoring stop command" << std::endl;
+                return;
+            }
+            else
+            {
+                std::cout << "Stopping DAQ..." << std::endl;
+                daqManager.stop_reading();
+                break;
+            }
+            
+        default:
+            std::cout << "Unknown DAQ command: " << command << std::endl;
+    }
 }
 
-//TODO
-void DiodeProgram::checkArduinoCommands()
+// checks over all commands in the arduino command queue, sending them to be carried out
+// then removing them in a thread safe manner.
+void DiodeProgram::checkArduinoCommands(ArduinoNano &arduinoNano)
 {
-    
+   std::lock_guard<std::mutex> lock(arduinoCommandQueueMutex);
+    while (!arduinoCommandQueue.empty())
+    {
+        // get command at front of queue and remove it from the queue
+        std::string command = arduinoCommandQueue.front();
+        arduinoCommandQueue.pop();
+
+        carryOutArduinoCommand(command, arduinoNano);
+    }
 }
 
-//TODO
-void DiodeProgram::carryOutArduinoCommand(std::string &command)
+// carries out an Arduino control command, which are specified using ArduinoCommands enum values and
+// arduinoCommandMap map.
+void DiodeProgram::carryOutArduinoCommand(std::string &command, ArduinoNano &arduinoNano)
 {
-    
+    std::map<std::string, ArduinoCommands> commandMap = arduinoCommandMap();
+    auto commandIndex = commandMap.find(command);
+
+    // if command is not found in map, print error and return
+    if (commandIndex == commandMap.end())
+    {
+        std::cout << "Invalid Arduino Thread command: " << command << std::endl;
+        return;
+    }
+
+    std::cout << "Arduino Thread command executing: " << command << std::endl;
+
+    // Execute the corresponding command based on the enum value
+    switch (commandIndex->second)
+    {
+        case ArduinoCommands::DIODE_1_ON:
+        /* TODO: NOTE SINCE DIODE PINS 1 AND 2 NON-FUNCTIONAL, CURRENT VERSION HAS PINS 1 AND 2 
+        SHORTED WITH 3, WHICH IS FUNCTIONAL  */
+            arduinoNano.setPinHigh(3); 
+            break;
+        case ArduinoCommands::DIODE_1_OFF:
+            arduinoNano.setPinLow(3); 
+            break;
+        case ArduinoCommands::DIODE_2_ON:
+            arduinoNano.setPinHigh(3); 
+            break;
+        case ArduinoCommands::DIODE_2_OFF:
+            arduinoNano.setPinLow(3); 
+            break;
+        case ArduinoCommands::DIODE_3_ON:
+            arduinoNano.setPinHigh(3);
+            break;
+        case ArduinoCommands::DIODE_3_OFF:
+            arduinoNano.setPinLow(3); 
+            break;
+        case ArduinoCommands::DIODE_4_ON:
+            arduinoNano.setPinHigh(4);
+            break;
+        case ArduinoCommands::DIODE_4_OFF:
+            arduinoNano.setPinLow(4);
+            break;
+        case ArduinoCommands::DIODE_5_ON:
+            arduinoNano.setPinHigh(5);
+            break;
+        case ArduinoCommands::DIODE_5_OFF:
+            arduinoNano.setPinLow(5);
+            break;
+        case ArduinoCommands::DIODE_6_ON:
+            arduinoNano.setPinHigh(6);
+            break;
+        case ArduinoCommands::DIODE_6_OFF:
+            arduinoNano.setPinLow(6);
+            break;
+        case ArduinoCommands::DIODE_7_ON:
+            arduinoNano.setPinHigh(7);
+            break;
+        case ArduinoCommands::DIODE_7_OFF:
+            arduinoNano.setPinLow(7);
+            break;
+        case ArduinoCommands::DIODE_8_ON:
+            arduinoNano.setPinHigh(8);
+            break;
+        case ArduinoCommands::DIODE_8_OFF:
+            arduinoNano.setPinLow(8);
+            break;
+        case ArduinoCommands::DIODE_9_ON:
+            arduinoNano.setPinHigh(9);
+            break;
+        case ArduinoCommands::DIODE_9_OFF:
+            arduinoNano.setPinLow(9);
+            break;
+        case ArduinoCommands::DIODE_10_ON:
+            arduinoNano.setPinHigh(10);
+            break;
+        case ArduinoCommands::DIODE_10_OFF:
+            arduinoNano.setPinLow(10);
+            break;
+        case ArduinoCommands::DIODE_11_ON:
+            arduinoNano.setPinHigh(11);
+            break;
+        case ArduinoCommands::DIODE_11_OFF:
+            arduinoNano.setPinLow(11);
+            break;
+        case ArduinoCommands::DIODE_12_ON:
+            arduinoNano.setPinHigh(12);
+            break;
+        case ArduinoCommands::DIODE_12_OFF:
+            arduinoNano.setPinLow(12);
+            break;
+        case ArduinoCommands::DIODE_13_ON:
+            arduinoNano.setPinHigh(13);
+            break;
+        case ArduinoCommands::DIODE_13_OFF:
+            arduinoNano.setPinLow(13);
+            break;
+        case ArduinoCommands::DIODE_14_ON:
+            arduinoNano.setPinHigh(14);
+            break;
+        case ArduinoCommands::DIODE_14_OFF:
+            arduinoNano.setPinLow(14);
+            break;
+        case ArduinoCommands::DIODE_15_ON:
+            arduinoNano.setPinHigh(15);
+            break;
+        case ArduinoCommands::DIODE_15_OFF:
+            arduinoNano.setPinLow(15);
+            break;
+        case ArduinoCommands::DIODE_16_ON:
+            arduinoNano.setPinHigh(16);
+            break;
+        case ArduinoCommands::DIODE_16_OFF:
+            arduinoNano.setPinLow(16);
+            break;
+        default:
+            std::cout << "Unknown Arduino command: " << command << std::endl;
+    }
 }
 
 //TODO
@@ -550,5 +738,5 @@ void DiodeProgram::run()
 //TODO
 void DiodeProgram::quitApp()
 {
-    
+    mainThreadRunning = false;
 }
