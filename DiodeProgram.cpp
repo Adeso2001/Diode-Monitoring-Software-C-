@@ -1,10 +1,182 @@
 #include "DiodeProgram.h"
 
+#include <map>
+
+// ============================================================
+// Command multimaps
+// ============================================================
+
+// Multimap for main thread commands, maps command strings to integers representing which thread 
+// should carry out the command.
+std::multimap<std::string, int>& mainCommandMap()
+{
+    static std::multimap<std::string, int> map;
+
+    /* Maps commands onto integers, which dictaten which thread needs to execute command.
+        * 0 = main thread
+        * 1 = DAQManager thread
+        * 2 = ArduinoNano thread
+        * 3 = SerialPort thread
+    */
+    map = {
+        {"QUIT", 0},
+        {"START DAQ", 1},
+        {"STOP DAQ", 1},
+        {"D ON 1", 2},
+        {"D OFF 1", 2},
+        {"D ON 2", 2},
+        {"D OFF 2", 2},
+        {"D ON 3", 2},
+        {"D OFF 3", 2},
+        {"D ON 4", 2},
+        {"D OFF 4", 2},
+        {"D ON 5", 2},
+        {"D OFF 5", 2},
+        {"D ON 6", 2},
+        {"D OFF 6", 2},
+        {"D ON 6", 2},
+        {"D OFF 6", 2},
+        {"D ON 6", 2},
+        {"D OFF 6", 2},
+        {"D ON 7", 2},
+        {"D OFF 7", 2},
+        {"D ON 8", 2},
+        {"D OFF 8", 2},
+        {"D ON 9", 2},
+        {"D OFF 9", 2},
+        {"D ON 10", 2},
+        {"D OFF 10", 2},
+        {"D ON 11", 2},
+        {"D OFF 11", 2},
+        {"D ON 12", 2},
+        {"D OFF 12", 2},
+        {"D ON 13", 2},
+        {"D OFF 13", 2},
+        {"D ON 14", 2},
+        {"D OFF 14", 2},
+        {"D ON 15", 2},
+        {"D OFF 15", 2},
+        {"D ON 16", 2},
+        {"D OFF 16", 2}
+    };
+
+    return map;
+}
+
+// enum to make defining arduino commands easier
+enum class ArduinoCommands
+{
+    DIODE_1_ON = 0,
+    DIODE_1_OFF = 1,
+    DIODE_2_ON = 2,
+    DIODE_2_OFF = 3,
+    DIODE_3_ON = 4,
+    DIODE_3_OFF = 5,
+    DIODE_4_ON = 6,
+    DIODE_4_OFF = 7,
+    DIODE_5_ON = 8,
+    DIODE_5_OFF = 9,
+    DIODE_6_ON = 10,
+    DIODE_6_OFF = 11,
+    DIODE_7_ON = 12,
+    DIODE_7_OFF = 13,
+    DIODE_8_ON = 14,
+    DIODE_8_OFF = 15,
+    DIODE_9_ON = 16,
+    DIODE_9_OFF = 17,
+    DIODE_10_ON = 18,
+    DIODE_10_OFF = 19,
+    DIODE_11_ON = 20,
+    DIODE_11_OFF = 21,
+    DIODE_12_ON = 22,
+    DIODE_12_OFF = 23,
+    DIODE_13_ON = 24,
+    DIODE_13_OFF = 25,
+    DIODE_14_ON = 26,
+    DIODE_14_OFF = 27,
+    DIODE_15_ON = 28,
+    DIODE_15_OFF = 29,
+    DIODE_16_ON = 30,
+    DIODE_16_OFF = 31
+};
+
+// Map for ArduinoNano thread commands, maps command strings to ArduinoCommands enum values 
+// representing which pin to set high or low.
+std::map<std::string, ArduinoCommands>& arduinoCommandMap()
+{
+    static std::map<std::string, ArduinoCommands> map;
+
+    map = {
+        {"D ON 1", ArduinoCommands::DIODE_1_ON},
+        {"D OFF 1", ArduinoCommands::DIODE_1_OFF},
+        {"D ON 2", ArduinoCommands::DIODE_2_ON},
+        {"D OFF 2", ArduinoCommands::DIODE_2_OFF},
+        {"D ON 3", ArduinoCommands::DIODE_3_ON},
+        {"D OFF 3", ArduinoCommands::DIODE_3_OFF},
+        {"D ON 4", ArduinoCommands::DIODE_4_ON},
+        {"D OFF 4", ArduinoCommands::DIODE_4_OFF},
+        {"D ON 5", ArduinoCommands::DIODE_5_ON},
+        {"D OFF 5", ArduinoCommands::DIODE_5_OFF},
+        {"D ON 6", ArduinoCommands::DIODE_6_ON},
+        {"D OFF 6", ArduinoCommands::DIODE_6_OFF},
+        {"D ON 7", ArduinoCommands::DIODE_7_ON},
+        {"D OFF 7", ArduinoCommands::DIODE_7_OFF},
+        {"D ON 8", ArduinoCommands::DIODE_8_ON},
+        {"D OFF 8", ArduinoCommands::DIODE_8_OFF},
+        {"D ON 9", ArduinoCommands::DIODE_9_ON},
+        {"D OFF 9", ArduinoCommands::DIODE_9_OFF},
+        {"D ON 10", ArduinoCommands::DIODE_10_ON},
+        {"D OFF 10", ArduinoCommands::DIODE_10_OFF},
+        {"D ON 11", ArduinoCommands::DIODE_11_ON},
+        {"D OFF 11", ArduinoCommands::DIODE_11_OFF},
+        {"D ON 12", ArduinoCommands::DIODE_12_ON},
+        {"D OFF 12", ArduinoCommands::DIODE_12_OFF},
+        {"D ON 13", ArduinoCommands::DIODE_13_ON},
+        {"D OFF 13", ArduinoCommands::DIODE_13_OFF},
+        {"D ON 14", ArduinoCommands::DIODE_14_ON},
+        {"D OFF 14", ArduinoCommands::DIODE_14_OFF},
+        {"D ON 15", ArduinoCommands::DIODE_15_ON},
+        {"D OFF 15",ArduinoCommands::DIODE_15_OFF},
+        {"D ON 16", ArduinoCommands::DIODE_16_ON},
+        {"D OFF 16", ArduinoCommands::DIODE_16_OFF}
+    };
+
+    return map;
+}
+
+// enum to make defining DAQManager commands easier
+enum class DAQCommands
+{
+    START_DAQ = 0,
+    STOP_DAQ = 1
+};
+
+// Map for DAQManager thread commands, maps command strings to DAQCommands enum values representing
+// which command to carry out.
+std::map<std::string, DAQCommands>& daqCommandMap()
+{
+    static std::map<std::string, DAQCommands> map;
+
+    map = {
+        {"START DAQ", DAQCommands::START_DAQ},
+        {"STOP DAQ", DAQCommands::STOP_DAQ}
+    };
+
+    return map;
+}
+
 // ============================================================
 // DiodeProgram
 // ============================================================
 
+// TODO
 DiodeProgram::DiodeProgram()
+{
+    
+}
+
+// TODO
+DiodeProgram::~DiodeProgram()
 {
     
 }
@@ -236,9 +408,17 @@ void DiodeProgram::serialPortLoop()
     serialManager.close();
 }
 
+// TODO
 void DiodeProgram::mainAppLoop()
 {
+    // Initialisation?
 
+    while(mainThreadRunning)
+    {
+        // check command queue and carry out commands
+    }
+
+    shutdownProcedure();
 }
 
 bool DiodeProgram::startupProcedure()
@@ -256,6 +436,7 @@ bool DiodeProgram::startupProcedure()
     serialPortThread = std::thread(&DiodeProgram::serialPortLoop, this);
 }
 
+// TODO
 bool DiodeProgram::shutdownProcedure()
 {
     
@@ -312,22 +493,38 @@ void DiodeProgram::serialTVRequest(std::string &command)
     }
 }
 
+//TODO
 void DiodeProgram::checkDiodeCommands()
 {
    
 }
 
+//TODO
 void DiodeProgram::carryOutDiodeCommand(std::string &command)
 {
     
 }
 
+//TODO
 void DiodeProgram::checkArduinoCommands()
 {
     
 }
 
+//TODO
 void DiodeProgram::carryOutArduinoCommand(std::string &command)
+{
+    
+}
+
+//TODO
+void DiodeProgram::checkMainCommands()
+{
+    
+}
+
+//TODO
+void DiodeProgram::carryOutMainCommand(std::string &command)
 {
     
 }
@@ -350,6 +547,7 @@ void DiodeProgram::run()
    mainThread = std::thread(&DiodeProgram::mainAppLoop, this);
 }
 
+//TODO
 void DiodeProgram::quitApp()
 {
     

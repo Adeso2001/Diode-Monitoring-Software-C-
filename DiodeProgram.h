@@ -70,10 +70,13 @@ class DiodeProgram
         void checkArduinoCommands(); // Helper function to carry out commands from SerialPort thread to Arduino Nano thread, takes command as argument
         void carryOutArduinoCommand(std::string &command); // Helper function to carry out a command from SerialPort thread to Arduino Nano thread, takes command as argument
 
+        void checkMainCommands(); // Helper function to carry out commands from SerialPort thread to main thread, takes command as argument
+        void carryOutMainCommand(std::string &command); // Helper function to carry out a command from SerialPort thread to main thread, takes command as argument
+
     public:
 
         DiodeProgram(); // Constructor
-        ~DiodeProgram() = default; // Destructor
+        ~DiodeProgram(); // Destructor
 
         // public member functions
         void run(); // Runs the loop for the app.
