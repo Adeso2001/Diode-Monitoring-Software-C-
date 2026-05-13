@@ -196,7 +196,11 @@ DiodeProgram::DiodeProgram()
 // default destructor, will clean up resources when DiodeProgram object goes out of scope
 DiodeProgram::~DiodeProgram()
 {
-    bool status = shutdownProcedure();
+    if (!shuttingDown)
+    {
+        shuttingDown = true; // signal shutdown if it isn't already
+        shutdownProcedure();
+    }
 
     if (mainThread.joinable()) 
     {
@@ -456,7 +460,11 @@ void DiodeProgram::mainAppLoop()
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    shutdownProcedure();
+    if (!shuttingDown)
+    {
+        shuttingDown = true; // signal shutdown if it isn't already
+        shutdownProcedure();
+    }
 }
 
 // Initialises all relevant threads and resources for the program. Option left open for error handling, 

@@ -40,6 +40,7 @@ class DiodeProgram
         std::atomic<bool> arduinoNanoRunning{false}; // Atomic boolean to control the running state of Arduino Nano thread
         std::atomic<bool> serialPortRunning{false}; // Atomic boolean to control the running state of SerialPort thread
         std::atomic<bool> mainThreadRunning{false}; // Atomic boolean to control the running state of SerialPort thread
+        std::atomic<bool> shuttingDown{false}; // Atomic boolean to indicate if the program is shutting down, used to signal threads to stop
 
         std::queue<std::string> mainCommandQueue; // Command queue for main thread to carry out commands from SerialPort thread
         std::queue<std::string> serialWriteQueue; // Command queue for SerialPort thread to carry out commands from main thread or Arduino Nano thread
