@@ -22,6 +22,8 @@ std::multimap<std::string, int>& mainCommandQueueDirector()
         {"QUIT", 0},
         {"START DAQ", 1},
         {"STOP DAQ", 1},
+        {"D ON 0", 2},
+        {"D OFF 0", 2},
         {"D ON 1", 2},
         {"D OFF 1", 2},
         {"D ON 2", 2},
@@ -55,9 +57,7 @@ std::multimap<std::string, int>& mainCommandQueueDirector()
         {"D ON 14", 2},
         {"D OFF 14", 2},
         {"D ON 15", 2},
-        {"D OFF 15", 2},
-        {"D ON 16", 2},
-        {"D OFF 16", 2}
+        {"D OFF 15", 2}
     };
 
     return map;
@@ -84,38 +84,38 @@ std::map<std::string, MainCommands>& mainCommandMap()
 // enum to make defining arduino commands easier
 enum class ArduinoCommands
 {
-    DIODE_1_ON = 0,
-    DIODE_1_OFF = 1,
-    DIODE_2_ON = 2,
-    DIODE_2_OFF = 3,
-    DIODE_3_ON = 4,
-    DIODE_3_OFF = 5,
-    DIODE_4_ON = 6,
-    DIODE_4_OFF = 7,
-    DIODE_5_ON = 8,
-    DIODE_5_OFF = 9,
-    DIODE_6_ON = 10,
-    DIODE_6_OFF = 11,
-    DIODE_7_ON = 12,
-    DIODE_7_OFF = 13,
-    DIODE_8_ON = 14,
-    DIODE_8_OFF = 15,
-    DIODE_9_ON = 16,
-    DIODE_9_OFF = 17,
-    DIODE_10_ON = 18,
-    DIODE_10_OFF = 19,
-    DIODE_11_ON = 20,
-    DIODE_11_OFF = 21,
-    DIODE_12_ON = 22,
-    DIODE_12_OFF = 23,
-    DIODE_13_ON = 24,
-    DIODE_13_OFF = 25,
-    DIODE_14_ON = 26,
-    DIODE_14_OFF = 27,
-    DIODE_15_ON = 28,
-    DIODE_15_OFF = 29,
-    DIODE_16_ON = 30,
-    DIODE_16_OFF = 31
+    DIODE_0_ON = 0,
+    DIODE_0_OFF = 1,
+    DIODE_1_ON = 2,
+    DIODE_1_OFF = 3,
+    DIODE_2_ON = 4,
+    DIODE_2_OFF = 5,
+    DIODE_3_ON = 6,
+    DIODE_3_OFF = 7,
+    DIODE_4_ON = 8,
+    DIODE_4_OFF = 9,
+    DIODE_5_ON = 10,
+    DIODE_5_OFF = 11,
+    DIODE_6_ON = 12,
+    DIODE_6_OFF = 13,
+    DIODE_7_ON = 14,
+    DIODE_7_OFF = 15,
+    DIODE_8_ON = 16,
+    DIODE_8_OFF = 17,
+    DIODE_9_ON = 18,
+    DIODE_9_OFF = 19,
+    DIODE_10_ON = 20,
+    DIODE_10_OFF = 21,
+    DIODE_11_ON = 22,
+    DIODE_11_OFF = 23,
+    DIODE_12_ON = 24,
+    DIODE_12_OFF = 25,
+    DIODE_13_ON = 26,
+    DIODE_13_OFF = 27,
+    DIODE_14_ON = 28,
+    DIODE_14_OFF = 29,
+    DIODE_15_ON = 30,
+    DIODE_15_OFF = 31
 };
 
 // Map for ArduinoNano thread commands, maps command strings to ArduinoCommands enum values 
@@ -125,6 +125,8 @@ std::map<std::string, ArduinoCommands>& arduinoCommandMap()
     static std::map<std::string, ArduinoCommands> map;
 
     map = {
+        {"D ON 0", ArduinoCommands::DIODE_0_ON},
+        {"D OFF 0", ArduinoCommands::DIODE_0_OFF},
         {"D ON 1", ArduinoCommands::DIODE_1_ON},
         {"D OFF 1", ArduinoCommands::DIODE_1_OFF},
         {"D ON 2", ArduinoCommands::DIODE_2_ON},
@@ -154,9 +156,7 @@ std::map<std::string, ArduinoCommands>& arduinoCommandMap()
         {"D ON 14", ArduinoCommands::DIODE_14_ON},
         {"D OFF 14", ArduinoCommands::DIODE_14_OFF},
         {"D ON 15", ArduinoCommands::DIODE_15_ON},
-        {"D OFF 15",ArduinoCommands::DIODE_15_OFF},
-        {"D ON 16", ArduinoCommands::DIODE_16_ON},
-        {"D OFF 16", ArduinoCommands::DIODE_16_OFF}
+        {"D OFF 15",ArduinoCommands::DIODE_15_OFF}
     };
 
     return map;
@@ -356,7 +356,7 @@ void DiodeProgram::serialPortLoop()
     #ifdef _WIN32
         const std::string portName = "COM5";   // Windows example: "COM3"
     #else
-        const std::string portName = "/dev/ttyUSB0";   // Linux example: "/dev/ttyUSB0"
+        const std::string portName = "/dev/pts/4";   // Linux example: "/dev/ttyUSB0"
     #endif
     const int baudRate = 9600;
 
@@ -660,19 +660,25 @@ void DiodeProgram::carryOutArduinoCommand(std::string &command, ArduinoNano &ard
     // Execute the corresponding command based on the enum value
     switch (commandIndex->second)
     {
-        case ArduinoCommands::DIODE_1_ON:
-        /* TODO: NOTE SINCE DIODE PINS 1 AND 2 NON-FUNCTIONAL, CURRENT VERSION HAS PINS 1 AND 2 
+        case ArduinoCommands::DIODE_0_ON:
+        /* TODO: NOTE SINCE ARDUINO PINS 0 AND 1 NON-FUNCTIONAL, CURRENT VERSION HAS PINS 1 AND 2 
         SHORTED WITH 3, WHICH IS FUNCTIONAL  */
-            arduinoNano.setPinHigh(3); 
+            arduinoNano.setPinHigh(2); 
+            break;
+        case ArduinoCommands::DIODE_0_OFF:
+            arduinoNano.setPinLow(2); 
+            break;
+        case ArduinoCommands::DIODE_1_ON:
+            arduinoNano.setPinHigh(2); 
             break;
         case ArduinoCommands::DIODE_1_OFF:
-            arduinoNano.setPinLow(3); 
+            arduinoNano.setPinLow(2); 
             break;
         case ArduinoCommands::DIODE_2_ON:
-            arduinoNano.setPinHigh(3); 
+            arduinoNano.setPinHigh(2); 
             break;
         case ArduinoCommands::DIODE_2_OFF:
-            arduinoNano.setPinLow(3); 
+            arduinoNano.setPinLow(2); 
             break;
         case ArduinoCommands::DIODE_3_ON:
             arduinoNano.setPinHigh(3);
@@ -751,12 +757,6 @@ void DiodeProgram::carryOutArduinoCommand(std::string &command, ArduinoNano &ard
             break;
         case ArduinoCommands::DIODE_15_OFF:
             arduinoNano.setPinLow(15);
-            break;
-        case ArduinoCommands::DIODE_16_ON:
-            arduinoNano.setPinHigh(16);
-            break;
-        case ArduinoCommands::DIODE_16_OFF:
-            arduinoNano.setPinLow(16);
             break;
         default:
             std::cout << "Unknown Arduino command: " << command << std::endl;
