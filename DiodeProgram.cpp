@@ -196,7 +196,7 @@ DiodeProgram::DiodeProgram()
 // default destructor, will clean up resources when DiodeProgram object goes out of scope
 DiodeProgram::~DiodeProgram()
 {
-    shutdownProcedure();
+    bool status = shutdownProcedure();
 
     if (mainThread.joinable()) 
     {
@@ -494,6 +494,8 @@ bool DiodeProgram::shutdownProcedure()
     if (daqManagerThread.joinable()) daqManagerThread.join();
     if (arduinoNanoThread.joinable()) arduinoNanoThread.join();
     if (serialPortThread.joinable()) serialPortThread.join();
+
+    return true;
 }
 
 /* Helper function to carry out temperature/voltage requests from SerialPort thread.
