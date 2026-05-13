@@ -248,9 +248,10 @@ void DiodeProgram::daqManagerLoop()
 
             for (const auto& row : data)
             {
-                for (size_t j = 0; j < row.size(); j+=2)
+                std::cout << "Time: " << row[0] << "s, \n";
+                for (size_t j = 0; (j+2) < row.size(); j+=2)
                 {
-                    std::cout << "CH"<< (j/2) <<": V = "<< row[j] << ", T = " << row[j+1] << "\n";
+                    std::cout << "CH"<< (j/2) <<": V = "<< row[j+1] << ", T = " << row[j+2] << "\n";
                 }
             }
         }
