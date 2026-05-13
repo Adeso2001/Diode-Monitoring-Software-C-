@@ -493,8 +493,11 @@ bool DiodeProgram::shutdownProcedure()
 
     // join threads to clean up resources
     if (daqManagerThread.joinable()) daqManagerThread.join();
+    std::cout << "DAQManager thread joined" << std::endl;
     if (arduinoNanoThread.joinable()) arduinoNanoThread.join();
+    std::cout << "Arduino Nano thread joined" << std::endl;
     if (serialPortThread.joinable()) serialPortThread.join();
+    std::cout << "Serial Port thread joined" << std::endl;
 
     return true;
 }
