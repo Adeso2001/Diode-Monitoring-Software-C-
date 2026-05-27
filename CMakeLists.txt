@@ -12,7 +12,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 qt_standard_project_setup()
 
-add_executable(DiodeMeasurementApp
+qt_add_executable(DiodeMeasurementApp
     main.cpp
     MainWindow.h
     MainWindow.cpp
@@ -51,5 +51,7 @@ add_executable(DiodeMeasurementApp
 )
 
 target_link_libraries(DiodeMeasurementApp
-    PRIVATE Qt6::Widgets
+    PRIVATE
+        Qt6::Widgets
+        gpiod
 )
