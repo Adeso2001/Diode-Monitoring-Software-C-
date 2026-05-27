@@ -84,16 +84,11 @@ class DiodeProgram
         // public member functions
         void run(); // Runs the loop for the app.
         void quitApp(); // Quits the app by stopping all threads and running shutdown procedure
+        void queueMainCommand(std::string &command); // Queues a command to be carried out in the main thread, takes command as argument
+
+        std::vector<double> getCurrentTemperatures(); // Returns the current temperatures in a thread safe way
+        std::vector<double> getCurrentVoltages(); // Returns the current voltages in a thread safe way
+        std::vector<std::vector<double>> getHistoricalData(); // Returns the historical data in a thread safe way
 };
-
-
-
-
-
-
-
-
-
-
 
 #endif

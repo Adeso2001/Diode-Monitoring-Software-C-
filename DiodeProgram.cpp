@@ -767,19 +767,21 @@ void DiodeProgram::carryOutArduinoCommand(std::string &command, ArduinoNano &ard
 // command queue then removing them in a thread safe manner.
 void DiodeProgram::checkMainCommands()
 {
-    int executionLocation;
     std::string command;
 
-    while (!mainCommandQueue.empty())
+    while (true)
     {
         // get command at front of queue and remove it from the queue
         {
             std::lock_guard<std::mutex> lock(mainCommandQueueMutex);
+
+            if (mainCommandQueue.empty()) {break;}
+            
             command = mainCommandQueue.front();
             mainCommandQueue.pop();
         }
 
-        executionLocation = mainCommandQueueDirector().find(command)->second;
+        auto executionLocation = mainCommandQueueDirector().find(command)->second;
         
         // execute command or place into relevant command queue
         if (executionLocation == 0) // main thread command
@@ -836,16 +838,21 @@ void DiodeProgram::carryOutMainCommand(std::string &command)
 
 void DiodeProgram::run()
 {
+    if (mainThreadRunning)
+    {
+        std::cerr << "Main thread already running, cannot run again" << std::endl;
+        return;
+    }
     // run startup procedure, if it returns false, print error and exit
-   if (startupProcedure() == false)
-   {
-    std::cerr << "Error during startup procedure. Exiting." << std::endl;
-    return;
-   };
+    if (startupProcedure() == false)
+    {
+        std::cerr << "Error during startup procedure. Exiting." << std::endl;
+        return;
+    }
 
-   // start main app loop
-   mainThreadRunning = true;
-   mainThread = std::thread(&DiodeProgram::mainAppLoop, this);
+    // start main app loop
+    mainThreadRunning = true;
+    mainThread = std::thread(&DiodeProgram::mainAppLoop, this);
 }
 
 // stops main thread loop, which will trigger shutdown procedure and clean up of all threads 
@@ -853,4 +860,32 @@ void DiodeProgram::run()
 void DiodeProgram::quitApp()
 {
     mainThreadRunning = false;
+}
+
+// queues a command to be carried out in the main thread, takes command as argument
+void DiodeProgram::queueMainCommand(std::string &command)
+{
+    std::lock_guard<std::mutex> lock(mainCommandQueueMutex);
+    mainCommandQueue.push(command);
+}
+ 
+// Returns the current temperatures in a thread safe way
+std::vector<double> DiodeProgram::getCurrentTemperatures()
+{
+    std::lock_guard<std::mutex> lock(currentTemperaturesMutex);
+    return currentTemperatures;
+}
+
+// Returns the current voltages in a thread safe way
+std::vector<double> DiodeProgram::getCurrentVoltages()
+{
+    std::lock_guard<std::mutex> lock(currentVoltagesMutex);
+    return currentVoltages;
+}
+
+// Returns the historical data in a thread safe way
+std::vector<std::vector<double>> DiodeProgram::getHistoricalData()
+{
+    std::lock_guard<std::mutex> lock(historicalDataMutex);
+    return historicalData;
 }
