@@ -28,6 +28,7 @@ class DiodeProgram
         // data members for managing DAQ and Arduino Nano
         std::vector<double> currentTemperatures{std::vector<double>(16, 0.0)};
         std::vector<double> currentVoltages{std::vector<double>(16, 0.0)};
+        double currentTime{0.0};
         std::vector<std::vector<double>> historicalData;
         std::string csvFileName{"diode_data.csv"};
         
@@ -53,6 +54,7 @@ class DiodeProgram
         std::mutex daqCommandQueueMutex; // Mutex for daq command queue
         std::mutex currentTemperaturesMutex; // Mutex for currentTemperatures
         std::mutex currentVoltagesMutex; // Mutex for currentVoltages
+        std::mutex currentTimeMutex; // Mutex for currentTime
         std::mutex historicalDataMutex; // Mutex for historicalData
         std::mutex csvFileMutex; // Mutex for csv file
 
@@ -89,6 +91,7 @@ class DiodeProgram
         std::vector<double> getCurrentTemperatures(); // Returns the current temperatures in a thread safe way
         std::vector<double> getCurrentVoltages(); // Returns the current voltages in a thread safe way
         std::vector<std::vector<double>> getHistoricalData(); // Returns the historical data in a thread safe way
-};
+        double getCurrentTime(); // Returns the current time in a thread safe way
+};    
 
 #endif

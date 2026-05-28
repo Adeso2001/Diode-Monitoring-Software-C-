@@ -77,6 +77,8 @@ void MainWindow::setupUi()
         auto temperatures = diode.getCurrentTemperatures();
         auto voltages = diode.getCurrentVoltages();
 
+        timeLabel->setText(QString("Time: %1 s").arg(diode.getCurrentTime(), 0, 'f', 2));
+        
         for (int i = 0; i < 16; ++i)
         {
             voltageLabels[i]->setText(QString("%1 V").arg(voltages[i], 0, 'f', 4));

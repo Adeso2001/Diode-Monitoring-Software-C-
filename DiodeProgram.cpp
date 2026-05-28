@@ -265,10 +265,12 @@ void DiodeProgram::daqManagerLoop()
         {
             std::lock_guard<std::mutex> lock_current_temperatures(currentTemperaturesMutex);
             std::lock_guard<std::mutex> lock_current_voltages(currentVoltagesMutex);
+            std::lock_guard<std::mutex> lock_current_time(currentTimeMutex);
             for (size_t channel_iterator = 0; channel_iterator < currentVoltages.size(); ++channel_iterator)
             {
                 currentVoltages[channel_iterator] = data.back()[channel_iterator * 2 + 1];
                 currentTemperatures[channel_iterator] = data.back()[channel_iterator * 2 + 2];
+                currentTime = data.back()[0];
             }
         }
 
@@ -888,4 +890,11 @@ std::vector<std::vector<double>> DiodeProgram::getHistoricalData()
 {
     std::lock_guard<std::mutex> lock(historicalDataMutex);
     return historicalData;
+}
+
+// Returns the current time in a thread safe way
+double DiodeProgram::getCurrentTime()
+{
+    std::lock_guard<std::mutex> lock(currentTimeMutex);
+    return currentTime;
 }
