@@ -220,6 +220,11 @@ void DiodeProgram::daqManagerLoop()
 {
     // initialise DAQManager
     DAQManager daqManager;
+
+    //FOR TESTING, REMOVE LATER
+    daqManager.calibrate_from_file(1, "/home/cryolab/DiodeApplication/Diode-Monitoring-Software-C-/Calibration_Files/Diode_A2_Calibration.330");
+
+
     daqManager.start_reading();
 
     std::cout << "DAQ startup successful" << std::endl;
