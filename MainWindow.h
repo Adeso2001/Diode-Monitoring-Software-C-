@@ -31,6 +31,9 @@ private:
     std::array<QPushButton*, 16> offButtons;
     std::array<QPushButton*, 16> calibrateButtons;
 
+    QString calibrationDir =
+    "/home/cryolab/DiodeApplication/Diode-Monitoring-Software-C-/Calibration_Files";
+
     QTimer *updateTimer;
 
     void setupUi();

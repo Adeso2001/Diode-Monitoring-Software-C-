@@ -1,5 +1,7 @@
 #include "MainWindow.h"
 
+#include <filesystem>
+
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -7,6 +9,8 @@
 #include <QPushButton>
 #include <QString>
 #include <QTimer>
+#include <QFileDialog>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QWidget(parent)
@@ -124,8 +128,55 @@ void MainWindow::diodeToggleOff(int diodeNumber)
 
 void MainWindow::diodeCalibrate(int diodeNumber)
 {
-    std::string command = "CALIBRATE " + std::to_string(diodeNumber);
+    std::string filePath;
+
+    // bring up file dialog to select calibration file
+    QString fileName = QFileDialog::getOpenFileName(this, "Select Calibration File", "",
+         "All Files (*.*);;Text Files (*.txt);;CSV Files (*.csv);");
+
+    // if file selected not in folder, copy file to folder
+    if (!fileName.isEmpty()) {
+    QFileInfo fileInfo(fileName);
+
+    // test if file in calibration directory, if not copy file to directory
+    bool isInCalibrationDir =
+        fileInfo.dir().canonicalPath() == QDir(calibrationDir).canonicalPath();
+
+    if (!isInCalibrationDir) {
+        // Test if file with same name exists in calibration directory, if so, bring up message box to
+        // ask if user wants to overwrite file
+
+        QString destFilePath = calibrationDir + "/" + fileInfo.fileName();
+        if (QFile::exists(destFilePath)) {
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(this, "Overwrite File",
+                                          "A file with the same name already exists in the calibration directory. Do you want to overwrite it?",
+                                          QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::No) {
+                return; // User chose not to overwrite, exit the function
+            }
+        }
+        // Copy the file to the calibration directory
+        if (!QFile::copy(fileName, destFilePath)) {
+            QMessageBox::critical(this, "Error", "Failed to copy the file to the calibration directory.");
+            return; // Exit the function if copy fails
+        }
+
+        std::string filePath = destFilePath.toStdString();
+
+    }
+    else
+    {
+        std::string filePath = fileName.toStdString();
+    }
+
+    // set the calibration file name in DiodeProgram
+    diode.setCalibrationFilePath(filePath, diodeNumber);
+
+    // add command to main command queue to calibrate diode
+    std::string command = "CALIBRATE";
     diode.queueMainCommand(command);
+    }
 }
 
 void MainWindow::onQuitClicked()

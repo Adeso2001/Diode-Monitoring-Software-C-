@@ -22,6 +22,7 @@ std::multimap<std::string, int>& mainCommandQueueDirector()
         {"QUIT", 0},
         {"START DAQ", 1},
         {"STOP DAQ", 1},
+        {"CALIBRATE", 1},
         {"D ON 0", 2},
         {"D OFF 0", 2},
         {"D ON 1", 2},
@@ -166,7 +167,8 @@ std::map<std::string, ArduinoCommands>& arduinoCommandMap()
 enum class DAQCommands
 {
     START_DAQ = 0,
-    STOP_DAQ = 1
+    STOP_DAQ = 1,
+    CALIBRATE = 2
 };
 
 // Map for DAQManager thread commands, maps command strings to DAQCommands enum values representing
@@ -177,7 +179,8 @@ std::map<std::string, DAQCommands>& daqCommandMap()
 
     map = {
         {"START DAQ", DAQCommands::START_DAQ},
-        {"STOP DAQ", DAQCommands::STOP_DAQ}
+        {"STOP DAQ", DAQCommands::STOP_DAQ},
+        {"CALIBRATE", DAQCommands::CALIBRATE}
     };
 
     return map;
@@ -222,14 +225,22 @@ void DiodeProgram::daqManagerLoop()
     DAQManager daqManager;
 
     //FOR TESTING, REMOVE LATER
+    /*
     for (int channel_iterator = 0; channel_iterator < 16; ++channel_iterator)
     {
         daqManager.calibrate_from_file(channel_iterator, "/home/cryolab/DiodeApplication/Diode-Monitoring-Software-C-/Calibration_Files/Diode_A2_Calibration.330");
     }
-
+    */
     daqManager.start_reading();
 
     std::cout << "DAQ startup successful" << std::endl;
+
+    // create file name for csv file with current date and time
+    std::string date_string{};
+    auto now = std::time(nullptr);
+    auto local_time = std::localtime(&now);
+    std::strftime(date_string.data(), date_string.capacity(), "%Y-%m-%d_%H-%M-%S", local_time);
+    csvFileName = "diode_data_" + date_string + ".csv";
 
     // initialise csv file
     std::ofstream csv_file(csvFileName, std::ios::out); // Clear the file
@@ -258,6 +269,7 @@ void DiodeProgram::daqManagerLoop()
             }
 
             /*
+            This prints the data as its produced, commented out as this fills up terminal with junk
             for (const auto& row : data)
             {
                 std::cout << "Time: " << row[0] << "s, \n";
@@ -283,6 +295,9 @@ void DiodeProgram::daqManagerLoop()
             }
         }
 
+        /*
+        For now this is commented out as it will eventually lead to a crash if program runs long
+        enough and isnt actually used anywhere
         // update historical data vector
         if (data.size() != 0)
         {
@@ -293,7 +308,7 @@ void DiodeProgram::daqManagerLoop()
                 std::make_move_iterator(data.end())
             );
         }
-
+        */
         // check command queue and carry out commands
         checkDaqCommands(daqManager);
 
@@ -592,6 +607,9 @@ void DiodeProgram::checkDaqCommands(DAQManager &daqManager)
 // daqCommandMap map.
 void DiodeProgram::carryOutDaqCommand(std::string &command, DAQManager &daqManager)
 {
+    int inputIndex;
+    std::string inputfilePath;
+
     std::map<std::string, DAQCommands> commandMap = daqCommandMap();
     auto commandIndex = commandMap.find(command);
 
@@ -633,6 +651,19 @@ void DiodeProgram::carryOutDaqCommand(std::string &command, DAQManager &daqManag
                 break;
             }
             
+        case DAQCommands::CALIBRATE:
+
+            std::cout << "Retreiving calibration info" << std::endl;
+
+            {
+                std::lock_guard<std::mutex> lock(calibrationFileMutex);
+                inputIndex = calibrationIndex;
+                inputfilePath = calibrationFilePath;
+            }
+
+            std::cout << "Calibrating channel " << inputIndex << " with file: " << inputfilePath << std::endl;
+            daqManager.calibrate_from_file(inputIndex, inputfilePath);
+            break;
         default:
             std::cout << "Unknown DAQ command: " << command << std::endl;
     }
@@ -895,16 +926,27 @@ std::vector<double> DiodeProgram::getCurrentVoltages()
     return currentVoltages;
 }
 
+/*
+Commented out for now as it actually isn't used anywhere and will eventually 
+lead to a crash if program runs long enough
 // Returns the historical data in a thread safe way
 std::vector<std::vector<double>> DiodeProgram::getHistoricalData()
 {
     std::lock_guard<std::mutex> lock(historicalDataMutex);
     return historicalData;
 }
+*/
 
 // Returns the current time in a thread safe way
 double DiodeProgram::getCurrentTime()
 {
     std::lock_guard<std::mutex> lock(currentTimeMutex);
     return currentTime;
+}
+
+void DiodeProgram::setCalibrationFilePath(const std::string& filePath, const int& index)
+{
+    std::lock_guard<std::mutex> lock(calibrationFileMutex);
+    calibrationFilePath = filePath;
+    calibrationIndex = index;
 }

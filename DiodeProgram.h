@@ -29,8 +29,11 @@ class DiodeProgram
         std::vector<double> currentTemperatures{std::vector<double>(16, 0.0)};
         std::vector<double> currentVoltages{std::vector<double>(16, 0.0)};
         double currentTime{0.0};
-        std::vector<std::vector<double>> historicalData;
+        //std::vector<std::vector<double>> historicalData;
         std::string csvFileName{"diode_data.csv"};
+        std::string calibrationFilePath;
+
+        int calibrationIndex; // Index of the diode being calibrated, used to pass to DAQManager for calibration
         
         std::thread daqManagerThread; // Thread for DAQManager loop
         std::thread arduinoNanoThread; // Thread for Arduino Nano loop
@@ -57,6 +60,7 @@ class DiodeProgram
         std::mutex currentTimeMutex; // Mutex for currentTime
         std::mutex historicalDataMutex; // Mutex for historicalData
         std::mutex csvFileMutex; // Mutex for csv file
+        std::mutex calibrationFileMutex; // Mutex for calibration file
 
         // Helper functions for threads to run their loops
         void daqManagerLoop(); // Loop for thread to read from DAQManager
@@ -92,6 +96,7 @@ class DiodeProgram
         std::vector<double> getCurrentVoltages(); // Returns the current voltages in a thread safe way
         std::vector<std::vector<double>> getHistoricalData(); // Returns the historical data in a thread safe way
         double getCurrentTime(); // Returns the current time in a thread safe way
+        void setCalibrationFilePath(const std::string &filePath, const int &index); // Sets the calibration file path and index in a thread safe way
 };    
 
 #endif
