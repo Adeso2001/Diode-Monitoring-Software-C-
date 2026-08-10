@@ -363,6 +363,12 @@ void DAQManager::calibrate_from_vector(int const &channel_number, vector<double>
 
 void DAQManager::calibrate_from_file(int const &channel_number, string const &file_name)
 {
+    if(is_calibrated_vector[channel_number] == true)
+    {
+        std::cout << "Channel " << channel_number << " is already calibrated. Overwriting calibration." << std::endl;
+        clear_calibration(channel_number);
+    }
+
     if (test_if_file_present(file_name) == false)
     {
         return;
@@ -384,7 +390,7 @@ void DAQManager::clear_calibration(int const &channel_number)
     {
         return;
     }
-    calibration_vector[channel_number] = std::make_unique<Calibration>();
+    calibration_vector[channel_number] = std::move(std::make_unique<Calibration>());
     is_calibrated_vector[channel_number] = false;
 }
 

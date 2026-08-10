@@ -162,16 +162,17 @@ void MainWindow::diodeCalibrate(int diodeNumber)
             return; // Exit the function if copy fails
         }
 
-        std::string filePath = destFilePath.toStdString();
+        filePath = destFilePath.toStdString();
 
     }
     else
     {
-        std::string filePath = fileName.toStdString();
+        filePath = fileName.toStdString();
     }
 
     // set the calibration file name in DiodeProgram
     diode.setCalibrationFilePath(filePath, diodeNumber);
+    std::cout<<"filepath is "<<filePath<<std::endl;
 
     // add command to main command queue to calibrate diode
     std::string command = "CALIBRATE";

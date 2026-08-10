@@ -236,11 +236,19 @@ void DiodeProgram::daqManagerLoop()
     std::cout << "DAQ startup successful" << std::endl;
 
     // create file name for csv file with current date and time
-    std::string date_string{};
+    char date_string[20];
+
     auto now = std::time(nullptr);
     auto local_time = std::localtime(&now);
-    std::strftime(date_string.data(), date_string.capacity(), "%Y-%m-%d_%H-%M-%S", local_time);
-    csvFileName = "diode_data_" + date_string + ".csv";
+
+    std::strftime(
+        date_string,
+        sizeof(date_string),
+        "%Y-%m-%d_%H-%M-%S",
+        local_time
+    );
+
+    csvFileName = "diode_data_" + std::string(date_string) + ".csv";
 
     // initialise csv file
     std::ofstream csv_file(csvFileName, std::ios::out); // Clear the file
@@ -335,7 +343,7 @@ void DiodeProgram::arduinoNanoLoop()
     #ifdef _WIN32
         std::string portName = "COM5"; // <-- CHANGE THIS AS NEEDED
     #else
-        std::string portName = "/dev/ttyUSB1"; // <-- CHANGE THIS AS NEEDED
+        std::string portName = "/dev/ttyUSB0"; // <-- CHANGE THIS AS NEEDED
     #endif
 
     if (!nanoManager.connect(portName, 9600)) {
@@ -382,7 +390,7 @@ void DiodeProgram::serialPortLoop()
     #ifdef _WIN32
         const std::string portName = "COM5";   // Windows example: "COM3"
     #else
-        const std::string portName = "/dev/ttyUSB0";   // Linux example: "/dev/ttyUSB0"
+        const std::string portName = "/dev/ttyUSB1";   // Linux example: "/dev/ttyUSB0"
     #endif
     const int baudRate = 9600;
 
