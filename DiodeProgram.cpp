@@ -222,8 +222,10 @@ void DiodeProgram::daqManagerLoop()
     DAQManager daqManager;
 
     //FOR TESTING, REMOVE LATER
-    daqManager.calibrate_from_file(1, "/home/cryolab/DiodeApplication/Diode-Monitoring-Software-C-/Calibration_Files/Diode_A2_Calibration.330");
-
+    for (int channel_iterator = 0; channel_iterator < 16; ++channel_iterator)
+    {
+        daqManager.calibrate_from_file(channel_iterator, "/home/cryolab/DiodeApplication/Diode-Monitoring-Software-C-/Calibration_Files/Diode_A2_Calibration.330");
+    }
 
     daqManager.start_reading();
 
@@ -255,6 +257,7 @@ void DiodeProgram::daqManagerLoop()
                 csv_file << std::endl;
             }
 
+            /*
             for (const auto& row : data)
             {
                 std::cout << "Time: " << row[0] << "s, \n";
@@ -263,6 +266,7 @@ void DiodeProgram::daqManagerLoop()
                     std::cout << "CH"<< (j/2) <<": V = "<< row[j+1] << ", T = " << row[j+2] << "\n";
                 }
             }
+            */
         }
 
         // update current temperatures and voltages vectors with most recent data, for now just filling in voltage values
@@ -316,7 +320,7 @@ void DiodeProgram::arduinoNanoLoop()
     #ifdef _WIN32
         std::string portName = "COM5"; // <-- CHANGE THIS AS NEEDED
     #else
-        std::string portName = "/dev/ttyUSB0"; // <-- CHANGE THIS AS NEEDED
+        std::string portName = "/dev/ttyUSB1"; // <-- CHANGE THIS AS NEEDED
     #endif
 
     if (!nanoManager.connect(portName, 9600)) {
@@ -363,7 +367,7 @@ void DiodeProgram::serialPortLoop()
     #ifdef _WIN32
         const std::string portName = "COM5";   // Windows example: "COM3"
     #else
-        const std::string portName = "/dev/pts/4";   // Linux example: "/dev/ttyUSB0"
+        const std::string portName = "/dev/ttyUSB0";   // Linux example: "/dev/ttyUSB0"
     #endif
     const int baudRate = 9600;
 
@@ -438,6 +442,7 @@ void DiodeProgram::serialPortLoop()
                     else
                     {
                         std::lock_guard<std::mutex> lock(mainCommandQueueMutex);
+                        std::cout<<"Pushing command to main queue:"<<command<<"/n";
                         mainCommandQueue.push(command);
                     }
                 }
