@@ -374,6 +374,7 @@ void DAQManager::calibrate_from_file(int const &channel_number, string const &fi
         return;
     }
     calibration_vector[channel_number]->fill_from_file(file_name);
+    std::cout<<"calculating spline \nX vector size: "<<calibration_vector[channel_number]->get_x_coordinates().size()<<"\nY vector size: "<<calibration_vector[channel_number]->get_y_coordinates().size()<<std::endl;
     calibration_vector[channel_number]->calculate_spline();
     is_calibrated_vector[channel_number] = true;
 }
