@@ -832,7 +832,16 @@ void DiodeProgram::checkMainCommands()
             mainCommandQueue.pop();
         }
 
-        auto executionLocation = mainCommandQueueDirector().find(command)->second;
+        auto& director = mainCommandQueueDirector();
+        auto commandPtr = director.find(command);
+
+        if (commandPtr == director.end())
+        {
+            std::cerr << "Command not found in mainCommandQueueDirector: " << command << std::endl;
+            continue; // Skip to the next command
+        }
+
+        int executionLocation = commandPtr->second;
         
         // execute command or place into relevant command queue
         if (executionLocation == 0) // main thread command
